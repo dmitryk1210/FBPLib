@@ -1,0 +1,11 @@
+## Ignore Visual Studio temporary files and build results
+
+# Visual Studio 2015 cache/options directory
+*.vs*
+
+# Build results
+build/*
+lib/*
+
+# User-specific files
+*.user
