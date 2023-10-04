@@ -1,5 +1,6 @@
 // DbgProj_simple_test_main.cpp
 
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
@@ -60,7 +61,8 @@ int main()
 
     Executor executor;
 
-    // fbp::TaskManager manager();
+    auto start = std::chrono::high_resolution_clock::now();
+
     Node node_in("node_input");
     Node node_buf("node_buffer");
     Node node_1("node_1");
@@ -127,6 +129,11 @@ int main()
     }
     executor.terminate();
     std::cout << "the end! =)\n";
+
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+
+    std::cout << "time: " << duration.count() << " ms\n";
 
     return 0;
 }
