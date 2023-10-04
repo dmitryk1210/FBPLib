@@ -16,6 +16,7 @@ Task::Task(const std::string& name)
 	, m_output_nodes()
 	, m_pthread(nullptr)
 	, m_is_finalized(false)
+	, m_num_threads(0)
 	, m_name(name)
 {
 }
@@ -25,26 +26,24 @@ Task::~Task()
 	//if (m_pthread) { delete m_pthread; }
 }
 
-void Task::start()
-{
-	assert(!m_pthread && "m_pthread must be nullptr");
-	m_pthread = new std::thread([this]() { this->threadFunction(); });
-}
-
 void Task::run(PackageBase* poriginal, PackageBase** ppresult, int& target_node) 
 {
 	m_runnable_function(poriginal, ppresult, target_node);
 }
 
-void Task::threadFunction()
+void Task::setOutputNodes(const std::vector<Node*>& nodes)
 {
-	while (true)
+	m_output_nodes = nodes;
+	for (auto it = m_output_nodes.begin(); it != m_output_nodes.end(); ++it) {
+		(*it)->handleTaskAttached();
+	}
+}
+
+void Task::doTask()
+{
+	while (!m_is_finalized)
 	{
 		//std::this_thread::sleep_for(std::chrono::milliseconds(1));
-
-		//std::stringstream ss;
-		//ss << " thread " << m_name << " is working\n";
-		//std::cout << ss.str();
 
 		if (!m_input_node) continue;
 		if (m_output_nodes.empty()) continue;
@@ -69,8 +68,14 @@ void Task::threadFunction()
 		int targetNode;
 		run(packageIn, &packageOut, targetNode);
 
-		m_output_nodes[targetNode]->push(packageOut);
+		if (packageOut) 
+		{
+			m_output_nodes[targetNode]->push(packageOut);
+		}
 	}
+	std::stringstream ss2;
+	ss2 << " thread " << m_name << " finalized\n";
+	std::cout << ss2.str();
 
 	m_is_finalized = true;
 }

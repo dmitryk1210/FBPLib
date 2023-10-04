@@ -4,9 +4,10 @@
 
 
 namespace fbp {
+
 Node::Node(const std::string& name)
-	: m_name(name)
-	, m_package_queue()
+		: m_name(name)
+		, m_task_counter(0)
 {
 }
 

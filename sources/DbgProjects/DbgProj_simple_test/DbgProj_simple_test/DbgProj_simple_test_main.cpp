@@ -4,8 +4,9 @@
 #include <iostream>
 #include <sstream>
 
+#include "Executor.h"
+#include "Node.h"
 #include "Task.h"
-#include "TaskManager.h"
 
 
 class PackageDefault : public fbp::PackageBase
@@ -21,10 +22,10 @@ void dummy(fbp::PackageBase* packageBaseIn, fbp::PackageBase* packageBaseOut, in
     PackageDefault* packageOut = static_cast<PackageDefault*>(packageBaseOut);
     uint32_t data = packageIn->data;
     std::string temp;
-    for (uint64_t iteration = 0; iteration < uint64_t(power) * 100; ++iteration)
+    for (uint64_t iteration = 0; iteration < uint64_t(5 - power) * 1000; ++iteration)
     {
         temp = std::to_string(data);
-        data = std::stoi(temp);
+        data = std::stoi(temp) + 1;
     }
     packageOut->data = data;
 }
@@ -57,6 +58,8 @@ int main()
 {
     using namespace fbp;
 
+    Executor executor;
+
     // fbp::TaskManager manager();
     Node node_in("node_input");
     Node node_buf("node_buffer");
@@ -69,23 +72,12 @@ int main()
 
     generateRandomPackagesSet(&node_in, 1000000);
 
-    Task task_read = Task("task_read");
-    task_read.setInputNode(&node_in);
-    task_read.setOutputNodes(&node_buf);
-    task_read.assign(taskReadFunc);
-    task_read.start();
+    executor.addTask("task_read", &node_in, &node_buf, 1, taskReadFunc);
 
-    Task task_sort = Task("task_sort");
-    task_sort.setInputNode(&node_buf);
     std::vector<fbp::Node*> task_sort_outputs = { &node_1, &node_2, &node_3, &node_4 };
-    task_sort.setOutputNodes(task_sort_outputs);
-    task_sort.assign(taskSortFunc);
-    task_sort.start();
+    executor.addTask("task_sort", &node_buf, task_sort_outputs, 1, taskSortFunc);
 
-    Task task_dummy1 = Task("task_dummy1");
-    task_dummy1.setInputNode(&node_1);
-    task_dummy1.setOutputNodes(&node_prt);
-    task_dummy1.assign(
+    executor.addTask("task_dummy1", &node_1, &node_prt, 4,
         [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
         {
             *ppackageOut = new PackageDefault();
@@ -94,12 +86,8 @@ int main()
             delete packageIn;
         }
     );
-    task_dummy1.start();
 
-    Task task_dummy2 = Task("task_dummy2");
-    task_dummy2.setInputNode(&node_2);
-    task_dummy2.setOutputNodes(&node_prt);
-    task_dummy2.assign(
+    executor.addTask("task_dummy2", &node_2, &node_prt, 4,
         [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
         {
             *ppackageOut = new PackageDefault();
@@ -108,12 +96,8 @@ int main()
             delete packageIn;
         }
     );
-    task_dummy2.start();
 
-    Task task_dummy3 = Task("task_dummy3");
-    task_dummy3.setInputNode(&node_3);
-    task_dummy3.setOutputNodes(&node_prt);
-    task_dummy3.assign(
+    executor.addTask("task_dummy3", &node_3, &node_prt, 4,
         [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
         {
             *ppackageOut = new PackageDefault();
@@ -122,12 +106,8 @@ int main()
             delete packageIn;
         }
     );
-    task_dummy3.start();
 
-    Task task_dummy4 = Task("task_dummy4");
-    task_dummy4.setInputNode(&node_4);
-    task_dummy4.setOutputNodes(&node_prt);
-    task_dummy4.assign(
+    executor.addTask("task_dummy4", &node_4, &node_prt, 4,
         [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
         {
             *ppackageOut = new PackageDefault();
@@ -136,26 +116,25 @@ int main()
             delete packageIn;
         }
     );
-    task_dummy4.start();
 
-    Task task_print = Task("task_print");
-    task_print.setInputNode(&node_prt);
-    task_print.setOutputNodes(&node_out);
-    task_print.assign(taskPrintFunc);
-    task_print.start();
+    executor.addTask("task_print", &node_prt, &node_out, 1, taskPrintFunc);
 
-    while (!task_print.isFinalized())
+    executor.execute();
+
+    while (!executor.getTask("task_print").isFinalized())
     {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
-
+    executor.terminate();
     std::cout << "the end! =)\n";
+
+    return 0;
 }
 
 void taskReadFunc(fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
 {
-    std::stringstream sstream;
-    sstream << "read:  " << static_cast<PackageDefault*>(packageIn)->data << "\n";
+    //std::stringstream sstream;
+    //sstream << "read:  " << static_cast<PackageDefault*>(packageIn)->data << "\n";
     //std::cout << sstream.str();
 
     *ppackageOut = packageIn;
@@ -164,8 +143,8 @@ void taskReadFunc(fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, i
 
 void taskSortFunc(fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
 {
-    std::stringstream sstream;
-    sstream << "sort:  " << static_cast<PackageDefault*>(packageIn)->data << "\n";
+    //std::stringstream sstream;
+    //sstream << "sort:  " << static_cast<PackageDefault*>(packageIn)->data << "\n";
     //std::cout << sstream.str();
 
     *ppackageOut = packageIn;
@@ -174,10 +153,11 @@ void taskSortFunc(fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, i
 
 void taskPrintFunc(fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
 {
-    std::stringstream sstream;
-    sstream << "print: " << static_cast<PackageDefault*>(packageIn)->data << "\n";
+    //std::stringstream sstream;
+    //sstream << "print: " << static_cast<PackageDefault*>(packageIn)->data << "\n";
     //std::cout << sstream.str();
 
-    *ppackageOut = packageIn;
+    delete packageIn;
+    *ppackageOut = nullptr;
     targetNode = 0;
 }

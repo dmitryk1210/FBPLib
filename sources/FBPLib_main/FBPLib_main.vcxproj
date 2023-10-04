@@ -172,10 +172,12 @@
     <ClInclude Include="..\..\include\Node.h" />
     <ClInclude Include="..\..\include\PackageBase.h" />
     <ClInclude Include="..\..\include\Task.h" />
+    <ClInclude Include="..\..\include\Executor.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Executor.cpp" />
     <ClCompile Include="Node.cpp" />
     <ClCompile Include="PackageBase.cpp" />
     <ClCompile Include="pch.cpp">
