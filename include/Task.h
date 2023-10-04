@@ -1,8 +1,10 @@
 #pragma once
 
 
+#include <atomic>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -19,6 +21,7 @@ class Task
 {
 public:
 	Task(const std::string& name);
+	Task(const Task& name);
 	~Task();
 
 	void assign(const RunnableFunction& func) { m_runnable_function = func; }
@@ -42,7 +45,9 @@ private:
 	bool m_is_finalized;
 	std::string m_name;
 
-	std::thread* m_pthread;
+	std::mutex m_finished_threads_mtx;
+	int m_finished_threads;
+	PackageBase* m_pPackageEndOfStream;
 
 	void run(PackageBase* poriginal, PackageBase** ppresult, int& target_node);
 };

@@ -9,6 +9,16 @@ void Executor::threadExecute(ThreadData& threadData)
 	threadData.pTask->doTask();
 }
 
+void Executor::addTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, int numThreads, const RunnableFunction& func)
+{
+	Task taskToAdd = Task(name);
+	taskToAdd.setInputNode(inputNode);
+	taskToAdd.setOutputNodes(outputNodes);
+	taskToAdd.setNumThreads(numThreads);
+	taskToAdd.assign(func);
+	m_tasks.insert(std::make_pair(name, taskToAdd));
+}
+
 void Executor::execute()
 {
 	int numThreads = 0;
@@ -35,6 +45,15 @@ void Executor::execute()
 		}
 	}
 
+}
+void Executor::terminate()
+{
+	for (int i = 0; i < m_threads.size(); ++i)
+	{
+		m_threads[i].join();
+	}
+	m_threads.clear();
+	m_threadDatas.clear();
 }
 }
 

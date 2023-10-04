@@ -17,34 +17,18 @@ public:
 		m_iMaxThreads = (iMaxThreads > 0) ? iMaxThreads : std::thread::hardware_concurrency();
 	}
 
-	void addTask(const std::string name, Node* inputNode, Node* outputNode, int numThreads, const RunnableFunction& func)
+	void addTask(const std::string& name, Node* inputNode, Node* outputNode, int numThreads, const RunnableFunction& func)
 	{
 		std::vector<Node*> outputNodes;
 		outputNodes.push_back(outputNode);
 		addTask(name, inputNode, outputNodes, numThreads, func);
 	}
 
-	void addTask(const std::string name, Node* inputNode, const std::vector<Node*>& outputNodes, int numThreads, const RunnableFunction& func)
-	{
-		Task taskToAdd = Task(name);
-		taskToAdd.setInputNode(inputNode);
-		taskToAdd.setOutputNodes(outputNodes);
-		taskToAdd.setNumThreads(numThreads);
-		taskToAdd.assign(func);
-		m_tasks.insert(std::make_pair(name, taskToAdd));
-	}
+	void addTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, int numThreads, const RunnableFunction& func);
 
 	void execute();
 
-	void terminate()
-	{
-		for (int i = 0; i < m_threads.size(); ++i)
-		{
-			m_threads[i].join();
-		}
-		m_threads.clear();
-		m_threadDatas.clear();
-	}
+	void terminate();
 
 	const Task& getTask(const std::string& name) { return m_tasks.find(name)->second; }
 
