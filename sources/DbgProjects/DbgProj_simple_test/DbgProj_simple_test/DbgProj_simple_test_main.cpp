@@ -74,12 +74,12 @@ int main()
 
     generateRandomPackagesSet(&node_in, 1000000);
 
-    executor.addTask("task_read", &node_in, &node_buf, 1, taskReadFunc);
+    executor.addTask("task_read", &node_in, &node_buf, taskReadFunc);
 
     std::vector<fbp::Node*> task_sort_outputs = { &node_1, &node_2, &node_3, &node_4 };
-    executor.addTask("task_sort", &node_buf, task_sort_outputs, 1, taskSortFunc);
+    executor.addTask("task_sort", &node_buf, task_sort_outputs, taskSortFunc);
 
-    executor.addTask("task_dummy1", &node_1, &node_prt, 4,
+    executor.addTask("task_dummy1", &node_1, &node_prt,
         [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
         {
             *ppackageOut = new PackageDefault();
@@ -89,7 +89,7 @@ int main()
         }
     );
 
-    executor.addTask("task_dummy2", &node_2, &node_prt, 4,
+    executor.addTask("task_dummy2", &node_2, &node_prt,
         [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
         {
             *ppackageOut = new PackageDefault();
@@ -99,7 +99,7 @@ int main()
         }
     );
 
-    executor.addTask("task_dummy3", &node_3, &node_prt, 4,
+    executor.addTask("task_dummy3", &node_3, &node_prt,
         [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
         {
             *ppackageOut = new PackageDefault();
@@ -109,7 +109,7 @@ int main()
         }
     );
 
-    executor.addTask("task_dummy4", &node_4, &node_prt, 4,
+    executor.addTask("task_dummy4", &node_4, &node_prt,
         [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
         {
             *ppackageOut = new PackageDefault();
@@ -119,11 +119,11 @@ int main()
         }
     );
 
-    executor.addTask("task_print", &node_prt, &node_out, 1, taskPrintFunc);
+    executor.addTask("task_print", &node_prt, &node_out, taskPrintFunc);
 
     executor.execute();
 
-    while (!executor.getTask("task_print").isFinalized())
+    while (!executor.isDone())
     {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
