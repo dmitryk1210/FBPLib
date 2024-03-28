@@ -66,7 +66,6 @@ public:
 		assert(pWorkerInstance->m_task == this);
 		pWorkerInstance->m_task = nullptr;
 		--m_workerInstancesCount;
-		//finalizeInstance();
 	}
 
 	int getAvaitingPackagesCount();
@@ -90,8 +89,6 @@ private:
 	WorkerInstanceIterationResult workerInstanceDoTaskIteration();
 
 	void run(PackageBase* poriginal, PackageBase** ppresult, int& target_node);
-
-	void finalizeInstance();
 
 	friend class WorkerInstance;
 };
