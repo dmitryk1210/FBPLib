@@ -29,7 +29,7 @@ public:
 
 	class WorkerInstance {
 	public:
-		bool process() {
+		bool Process() {
 			WorkerInstanceIterationResult res = m_task->workerInstanceDoTaskIteration();
 			return res == WorkerInstanceIterationResult::PROCESSED;
 		}
@@ -42,35 +42,28 @@ public:
 	Task(const Task& name);
 	~Task();
 
-	void assign(const RunnableFunction& func) { m_runnable_function = func; }
+	void Assign(const RunnableFunction& func) { m_runnable_function = func; }
 
-	int  getWorkerInstancesCount() const { return m_workerInstancesCount; }
-	void setInputNode(Node* node) { m_input_node = node; }
-	void setOutputNodes(const std::vector<Node*>& nodes);
-	inline void setOutputNodes(Node* node) { m_output_nodes = std::vector<Node*>(); m_output_nodes.push_back(node); }
+	int  GetWorkerInstancesCount() const { return m_workerInstancesCount; }
+	void SetInputNode(Node* node) { m_input_node = node; }
+	void SetOutputNodes(const std::vector<Node*>& nodes);
+	inline void SetOutputNodes(Node* node) { m_output_nodes = std::vector<Node*>(); m_output_nodes.push_back(node); }
 
-	inline bool isFinalized() const { return m_is_finalized; }
-
-	inline bool isFinalizeInProcess() const { return m_processFinalize; }
-
-	void initWorkerInstance(WorkerInstance* pWorkerInstance) {
-		if (pWorkerInstance->m_task) {
-			int ighf = 0;
-		}
+	void InitWorkerInstance(WorkerInstance* pWorkerInstance) {
 		assert(!pWorkerInstance->m_task);
 		pWorkerInstance->m_task = this;
 		++m_workerInstancesCount;
 	}
 
-	void termWorkerInstance(WorkerInstance* pWorkerInstance) {
+	void TermWorkerInstance(WorkerInstance* pWorkerInstance) {
 		assert(pWorkerInstance->m_task == this);
 		pWorkerInstance->m_task = nullptr;
 		--m_workerInstancesCount;
 	}
 
-	int getAvaitingPackagesCount();
+	int GetAvaitingPackagesCount();
 
-	const std::string& getName() const { return m_name; }
+	const std::string& GetName() const { return m_name; }
 
 private:
 	Node* m_input_node;
@@ -78,8 +71,6 @@ private:
 	RunnableFunction m_runnable_function;
 
 	int m_workerInstancesCount;
-	bool m_processFinalize;
-	bool m_is_finalized;
 	std::string m_name;
 
 	std::mutex m_finishedThreadsMtx;
@@ -88,7 +79,7 @@ private:
 
 	WorkerInstanceIterationResult workerInstanceDoTaskIteration();
 
-	void run(PackageBase* poriginal, PackageBase** ppresult, int& target_node);
+	void Run(PackageBase* poriginal, PackageBase** ppresult, int& target_node);
 
 	friend class WorkerInstance;
 };

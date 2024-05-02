@@ -2,6 +2,7 @@
 
 #include "Task.h"
 
+#define MIN(a, b) a < b ? a : b
 #define MAX(a, b) a > b ? a : b
 
 namespace fbp {
@@ -18,17 +19,16 @@ private:
 	};
 
 	double CalculatePriority(TaskExecutionData& tED) {
-		//if (tED.task->isFinalized() || tED.task->isFinalizeInProcess()) return -1;
-		int size = tED.task->getAvaitingPackagesCount();
+		int size = tED.task->GetAvaitingPackagesCount();
 		if (size <= 0) return 0;
 		double result = 1.0;
-		if (tED.wasStackEmptied) result /= 4;
-		if (size < MIN_AVAITING_PACKAGES_COUNT) result /= 4;
-		result *= size;
-		result /= MAX(
-			MAX(tED.processedPackages * 1.0 / tED.ticks, 1.0) * tED.workingThreads,
-			1.0
-		);
+		if (tED.wasStackEmptied) result /= 64;
+		if (size < MIN_AVAITING_PACKAGES_COUNT) result /= 64;
+		
+		double speed = MAX(tED.processedPackages * 1.0 / tED.ticks, 0.0);
+		double totalSpeed = speed * tED.workingThreads;
+		double estimate = MIN(size / totalSpeed, INT_MAX);
+		result *= estimate;
 		return result;
 	}
 

@@ -9,7 +9,7 @@ void TaskPool::AddTask(const std::string& name, Task* pTask) {
 	m_taskExecutionDatas.back().name = name;
 	m_taskExecutionDatas.back().task = pTask;
 }
-
+//#pragma optimize("", off)
 Task* TaskPool::GetNextTask(Task* pCurTask, uint32_t processedPackages, bool wasStackEmptied) {
 	std::vector<double> priorities;
 	priorities.resize(m_taskExecutionDatas.size());
@@ -34,13 +34,16 @@ Task* TaskPool::GetNextTask(Task* pCurTask, uint32_t processedPackages, bool was
 		}
 	}
 
-	if (curTaskPriority / maxTaskPriority > 0.4 && curTaskIdx >= 0) {
+	if (curTaskPriority / maxTaskPriority > 0.1 && curTaskIdx >= 0) {
 		return pCurTask;
 	}
 	if (curTaskIdx >= 0) {
 		m_taskExecutionDatas[curTaskIdx].workingThreads -= 1;
 	}
 	if (maxTaskIdx >= 0) {
+		//if (m_taskExecutionDatas[maxTaskIdx].workingThreads > 10) {
+		//	int i = 0;
+		//}
 		m_taskExecutionDatas[maxTaskIdx].workingThreads += 1;
 		return m_taskExecutionDatas[maxTaskIdx].task;
 	}

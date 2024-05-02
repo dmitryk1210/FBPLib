@@ -19,23 +19,24 @@ public:
 		m_iMaxThreads = (iMaxThreads > 0) ? iMaxThreads : std::thread::hardware_concurrency();
 	}
 
-	void addTask(const std::string& name, Node* inputNode, Node* outputNode, const RunnableFunction& func) {
+	void AddTask(const std::string& name, Node* inputNode, Node* outputNode, const RunnableFunction& func) {
 		std::vector<Node*> outputNodes;
 		outputNodes.push_back(outputNode);
-		addTask(name, inputNode, outputNodes, func);
+		AddTask(name, inputNode, outputNodes, func);
 	}
 
-	void addTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, const RunnableFunction& func);
+	void AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, const RunnableFunction& func);
 
-	void execute();
+	void Execute(bool collectDebugData = false);
+	void PrintDebugData(const char* filename);
 
-	void terminate();
+	void Terminate();
 
-	bool isDone() const {
+	bool IsDone() const {
 		return m_iMaxThreads == m_threadsFinished.load();
 	}
 
-	const Task& getTask(const std::string& name) { return m_tasks.find(name)->second; }
+	const Task& GetTask(const std::string& name) { return m_tasks.find(name)->second; }
 
 private:
 	struct ThreadData {
@@ -58,7 +59,7 @@ private:
 	TaskPool m_taskPool;
 	DataCollector m_dataCollector;
 
-	void threadExecute(int);
+	void ThreadExecute(int);
 
 };
 }

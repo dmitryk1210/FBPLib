@@ -1,11 +1,15 @@
 ## Ignore Visual Studio temporary files and build results
 
-# Visual Studio 2015 cache/options directory
+# Visual Studio 2017 cache/options directory
 *.vs*
 
 # Build results
 build/*
 lib/*
+
+# PyCharm dirs
+tools/visualizer/venv/*
+tools/visualizer/.idea/*
 
 # User-specific files
 *.user

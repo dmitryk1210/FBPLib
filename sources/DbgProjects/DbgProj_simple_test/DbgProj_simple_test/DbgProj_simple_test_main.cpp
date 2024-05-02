@@ -39,14 +39,14 @@ void generateRandomPackagesSet(fbp::Node* node, int count)
         PackageDefault* pack = new PackageDefault();
         pack->data = std::rand();
         ++generatedCount;
-        node->push(pack);
+        node->Push(pack);
 
         //std::stringstream ss;
         //ss << "generated pack " << pack->data << " \n";
         //std::string sstring = ss.str();
         //std::cout << sstring;
     }
-    node->push(new fbp::PackageEndOfStream());
+    node->Push(new fbp::PackageEndOfStream());
     std::cout << "generate " << count << " packages\n";
 }
 
@@ -74,12 +74,12 @@ int main()
 
     generateRandomPackagesSet(&node_in, 1000000);
 
-    executor.addTask("task_read", &node_in, &node_buf, taskReadFunc);
+    executor.AddTask("task_read", &node_in, &node_buf, taskReadFunc);
 
     std::vector<fbp::Node*> task_sort_outputs = { &node_1, &node_2, &node_3, &node_4 };
-    executor.addTask("task_sort", &node_buf, task_sort_outputs, taskSortFunc);
+    executor.AddTask("task_sort", &node_buf, task_sort_outputs, taskSortFunc);
 
-    executor.addTask("task_dummy1", &node_1, &node_prt,
+    executor.AddTask("task_dummy1", &node_1, &node_prt,
         [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
         {
             *ppackageOut = new PackageDefault();
@@ -89,7 +89,7 @@ int main()
         }
     );
 
-    executor.addTask("task_dummy2", &node_2, &node_prt,
+    executor.AddTask("task_dummy2", &node_2, &node_prt,
         [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
         {
             *ppackageOut = new PackageDefault();
@@ -99,7 +99,7 @@ int main()
         }
     );
 
-    executor.addTask("task_dummy3", &node_3, &node_prt,
+    executor.AddTask("task_dummy3", &node_3, &node_prt,
         [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
         {
             *ppackageOut = new PackageDefault();
@@ -109,7 +109,7 @@ int main()
         }
     );
 
-    executor.addTask("task_dummy4", &node_4, &node_prt,
+    executor.AddTask("task_dummy4", &node_4, &node_prt,
         [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
         {
             *ppackageOut = new PackageDefault();
@@ -119,15 +119,16 @@ int main()
         }
     );
 
-    executor.addTask("task_print", &node_prt, &node_out, taskPrintFunc);
+    executor.AddTask("task_print", &node_prt, &node_out, taskPrintFunc);
 
-    executor.execute();
+    executor.Execute(true);
 
-    while (!executor.isDone())
+    while (!executor.IsDone())
     {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
-    executor.terminate();
+    executor.PrintDebugData("debugData.out");
+    executor.Terminate();
     std::cout << "the end! =)\n";
 
     auto stop = std::chrono::high_resolution_clock::now();

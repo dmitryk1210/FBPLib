@@ -169,6 +169,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\DataCollector.h" />
+    <ClInclude Include="..\..\include\DataCollectorConstants.h" />
     <ClInclude Include="..\..\include\fbplib.h" />
     <ClInclude Include="..\..\include\Node.h" />
     <ClInclude Include="..\..\include\PackageBase.h" />

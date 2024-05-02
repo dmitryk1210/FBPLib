@@ -14,8 +14,6 @@ namespace fbp {
 Task::Task(const std::string& name)
 	: m_input_node           (nullptr)
 	, m_output_nodes         ()
-	, m_processFinalize      (false)
-	, m_is_finalized         (false)
 	, m_workerInstancesCount (0)
 	, m_finishedThreads      (0)
 	, m_name                 (name)
@@ -26,8 +24,6 @@ Task::Task(const std::string& name)
 Task::Task(const Task& task)
 	: m_input_node           (task.m_input_node)
 	, m_output_nodes         (task.m_output_nodes)
-	, m_processFinalize      (task.m_processFinalize)
-	, m_is_finalized         (task.m_is_finalized)
 	, m_workerInstancesCount (task.m_workerInstancesCount)
 	, m_finishedThreads      (task.m_finishedThreads)
 	, m_name                 (task.m_name)
@@ -40,21 +36,21 @@ Task::~Task()
 {
 }
 
-void Task::run(PackageBase* poriginal, PackageBase** ppresult, int& target_node) 
+void Task::Run(PackageBase* poriginal, PackageBase** ppresult, int& target_node) 
 {
 	m_runnable_function(poriginal, ppresult, target_node);
 }
 
-void Task::setOutputNodes(const std::vector<Node*>& nodes)
+void Task::SetOutputNodes(const std::vector<Node*>& nodes)
 {
 	m_output_nodes = nodes;
 	for (auto it = m_output_nodes.begin(); it != m_output_nodes.end(); ++it) {
-		(*it)->handleTaskAttached();
+		(*it)->HandleTaskAttached();
 	}
 }
 
-int Task::getAvaitingPackagesCount() { 
-	return m_input_node->count(); 
+int Task::GetAvaitingPackagesCount() { 
+	return m_input_node->Count(); 
 }
 
 Task::WorkerInstanceIterationResult Task::workerInstanceDoTaskIteration()
@@ -66,11 +62,11 @@ Task::WorkerInstanceIterationResult Task::workerInstanceDoTaskIteration()
 		return WorkerInstanceIterationResult::SKIPPED;
 	}
 
-	PackageBase* packageIn = m_input_node->pop();
+	PackageBase* packageIn = m_input_node->Pop();
 	if (!packageIn) {
 		return WorkerInstanceIterationResult::SKIPPED;
 	}
-	if (packageIn->isLast()) {
+	if (packageIn->IsLast()) {
 		m_pPackageEndOfStream = packageIn;
 		
 		return WorkerInstanceIterationResult::FINALIZED;
@@ -78,11 +74,11 @@ Task::WorkerInstanceIterationResult Task::workerInstanceDoTaskIteration()
 
 	PackageBase* packageOut = nullptr;
 	int targetNode;
-	run(packageIn, &packageOut, targetNode);
+	Run(packageIn, &packageOut, targetNode);
 
 	if (packageOut) {
 		assert(!m_is_finalized);
-		m_output_nodes[targetNode]->push(packageOut);
+		m_output_nodes[targetNode]->Push(packageOut);
 	}
 
 	return WorkerInstanceIterationResult::PROCESSED;

@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include <chrono>
+#include <fstream>
 #include <iostream>
 #include <windows.h>
 
@@ -9,7 +10,7 @@
 
 namespace fbp {
 
-void Executor::threadExecute(int threadId)
+void Executor::ThreadExecute(int threadId)
 {
 	Task* pTask             = nullptr;
 	Task* pPrevTask         = nullptr;
@@ -27,15 +28,15 @@ void Executor::threadExecute(int threadId)
 		wasStackEmptied   = false;
 
 		if (pTask != pPrevTask) {
-			if (pPrevTask) pPrevTask->termWorkerInstance(&workerInstance);
-			pTask->initWorkerInstance(&workerInstance);
+			if (pPrevTask) pPrevTask->TermWorkerInstance(&workerInstance);
+			pTask->InitWorkerInstance(&workerInstance);
 		}
 		pPrevTask = pTask;
 
 		start = std::chrono::high_resolution_clock::now();
 		end = start;
-		while (/*std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() < 100*/ true) {
-			if (!workerInstance.process()) {
+		while (std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() < 10000 /*true*/) {
+			if (!workerInstance.Process()) {
 				wasStackEmptied = true;
 				end = std::chrono::high_resolution_clock::now();
 				break;
@@ -46,28 +47,28 @@ void Executor::threadExecute(int threadId)
 		{
 			DataChunk chunk;
 			chunk.threadId = threadId;
-			chunk.taskName = pTask->getName();
+			chunk.taskName = pTask->GetName();
 			chunk.start = start;
 			chunk.stop = end;
-			localDataCollector.SubmitDataChunk(chunk);
+			localDataCollector.SubmitDataChunk(std::move(chunk));
 		}
 		
 	}
-	if (pPrevTask) pPrevTask->termWorkerInstance(&workerInstance);
+	if (pPrevTask) pPrevTask->TermWorkerInstance(&workerInstance);
 	m_threadsFinished.fetch_add(1, std::memory_order_relaxed);
 }
 
 
-void Executor::addTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, const RunnableFunction& func)
+void Executor::AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, const RunnableFunction& func)
 {
 	Task taskToAdd = Task(name);
-	taskToAdd.setInputNode(inputNode);
-	taskToAdd.setOutputNodes(outputNodes);
-	taskToAdd.assign(func);
+	taskToAdd.SetInputNode(inputNode);
+	taskToAdd.SetOutputNodes(outputNodes);
+	taskToAdd.Assign(func);
 	m_tasks.insert(std::make_pair(name, taskToAdd));
 }
 
-void Executor::execute()
+void Executor::Execute(bool collectDebugData)
 {
 	int numThreads = 0;
 	for (auto it = m_tasks.begin(); it != m_tasks.end(); ++it) {
@@ -82,7 +83,7 @@ void Executor::execute()
 	m_dataCollector.SetStartTimePoint(std::chrono::high_resolution_clock::now());
 
 	for (int i = 0; i < m_iMaxThreads; ++i) {
-		m_threads.push_back(std::thread([this, i]() { this->threadExecute(i); }));
+		m_threads.push_back(std::thread([this, i]() { this->ThreadExecute(i); }));
 		DWORD_PTR dw = SetThreadAffinityMask(m_threads[i].native_handle(), DWORD_PTR(1) << (i % m_iMaxThreads));
 		if (dw == 0) {
 			DWORD dwErr = GetLastError();
@@ -91,7 +92,15 @@ void Executor::execute()
 	}
 
 }
-void Executor::terminate()
+
+void Executor::PrintDebugData(const char* filename) {
+	std::ofstream outfile;
+	outfile.open(filename, std::ios::out | std::ios::trunc);
+	m_dataCollector.PrintCollectedData(outfile);
+	outfile.close();
+}
+
+void Executor::Terminate()
 {
 	for (int i = 0; i < m_threads.size(); ++i) {
 		m_threads[i].join();
