@@ -13,3 +13,6 @@ tools/visualizer/.idea/*
 
 # User-specific files
 *.user
+
+# Output files
+*.out
