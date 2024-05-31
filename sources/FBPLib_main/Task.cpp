@@ -73,11 +73,10 @@ Task::WorkerInstanceIterationResult Task::workerInstanceDoTaskIteration()
 	}
 
 	PackageBase* packageOut = nullptr;
-	int targetNode;
+	int targetNode = 0;
 	Run(packageIn, &packageOut, targetNode);
 
 	if (packageOut) {
-		assert(!m_is_finalized);
 		m_output_nodes[targetNode]->Push(packageOut);
 	}
 
