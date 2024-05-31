@@ -15,8 +15,9 @@
 
 namespace fbp {
 class Node;
+class Task;
 
-typedef std::function<void(PackageBase*, PackageBase**, int&)> RunnableFunction;
+typedef std::function<void(PackageBase*, Task*)> RunnableFunction;
 
 class Task
 {
@@ -47,7 +48,13 @@ public:
 	int  GetWorkerInstancesCount() const { return m_workerInstancesCount; }
 	void SetInputNode(Node* node) { m_input_node = node; }
 	void SetOutputNodes(const std::vector<Node*>& nodes);
-	inline void SetOutputNodes(Node* node) { m_output_nodes = std::vector<Node*>(); m_output_nodes.push_back(node); }
+	inline void SetOutputNodes(Node* node) { 
+		std::vector<Node*> tmpOutputNodes = std::vector<Node*>();
+		tmpOutputNodes.push_back(node);
+		SetOutputNodes(std::move(tmpOutputNodes));
+	}
+
+	Node* GetOutputNode(const std::string& nodeName = "");
 
 	void InitWorkerInstance(WorkerInstance* pWorkerInstance) {
 		assert(!pWorkerInstance->m_task);
@@ -66,9 +73,10 @@ public:
 	const std::string& GetName() const { return m_name; }
 
 private:
-	Node* m_input_node;
-	std::vector<Node*> m_output_nodes;
-	RunnableFunction m_runnable_function;
+	Node*                        m_input_node;
+	std::vector<Node*>           m_output_nodes;
+	std::map<std::string, Node*> m_name_to_node;
+	RunnableFunction             m_runnable_function;
 
 	int m_workerInstancesCount;
 	std::string m_name;
@@ -79,7 +87,7 @@ private:
 
 	WorkerInstanceIterationResult workerInstanceDoTaskIteration();
 
-	void Run(PackageBase* poriginal, PackageBase** ppresult, int& target_node);
+	void Run(PackageBase* poriginal);
 
 	friend class WorkerInstance;
 };

@@ -152,10 +152,9 @@ int main()
 
     Node nodeGray("Gray");
     executor.AddTask("task_MakeGray", &nodeInput, &nodeGray,
-        [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
+        [](fbp::PackageBase* packageIn, fbp::Task* pTask)
         {
             PackageGrayImage* pGrayImage = new PackageGrayImage();
-            *ppackageOut = pGrayImage;
 
             pGrayImage->pInputImage = static_cast<PackageInput*>(packageIn)->pImage;
             pGrayImage->pGrayImage  = new PGMImage<uint16_t>();
@@ -174,48 +173,50 @@ int main()
             }
             imageGray.SaveTo("output\\gray.pgm");
 
+            pTask->GetOutputNode()->Push(pGrayImage);
             delete packageIn;
         }
     );
 
     Node nodeContrast("Contrast");
     executor.AddTask("task_MakeContrast", &nodeGray, &nodeContrast,
-        [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
+        [](fbp::PackageBase* packageIn, fbp::Task* pTask)
         {
             PackageGrayImage* pGrayImage = static_cast<PackageGrayImage*>(packageIn);
-            *ppackageOut = packageIn;
             pGrayImage->pGrayImage->AddContrastFilter(50);
             pGrayImage->pGrayImage->SaveTo("output\\grayContrast.pgm");
+    
+            pTask->GetOutputNode()->Push(packageIn);
         }
     );
-
-    Node nodeChunksToProcess("ChunksToProcess");
     
-    Node nodeMergeChunks("MergeChunks");
-
+    //Node nodeChunksToProcess("ChunksToProcess");
+    //
+    //Node nodeMergeChunks("MergeChunks");
+    
     Node nodeProcessedImages("ProcessedImages");
     executor.AddTask("task_ProcessImage", &nodeContrast, &nodeProcessedImages,
-        [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
+        [](fbp::PackageBase* packageIn, fbp::Task* pTask)
         {
             PackageGrayImage* pGrayImage = static_cast<PackageGrayImage*>(packageIn);
             PackageProcessedImage* pProcessedImage = new PackageProcessedImage();
-            *ppackageOut = pProcessedImage;
-
+    
             pProcessedImage->pInputImage = pGrayImage->pInputImage;
             pProcessedImage->pGrayImage  = pGrayImage->pGrayImage;
             pProcessedImage->L           = ProcessImage(*pProcessedImage->pGrayImage);
+    
+            pTask->GetOutputNode()->Push(pProcessedImage);
             
             delete packageIn;
         }
     );
-
+    
     Node nodeOutput("Output");
     executor.AddTask("task_Filter", &nodeProcessedImages, &nodeOutput,
-        [](fbp::PackageBase* packageIn, fbp::PackageBase** ppackageOut, int& targetNode)
+        [](fbp::PackageBase* packageIn, fbp::Task* pTask)
         {
             PackageProcessedImage* pProcessedImage = static_cast<PackageProcessedImage*>(packageIn);
-            *ppackageOut = nullptr;
-
+    
             float L_limit = 0;
             {
                 const int LIMIT = 20;
@@ -223,14 +224,14 @@ int main()
                 std::partial_sort(L_ordered.begin(), L_ordered.begin() + 1500, L_ordered.end(), std::greater{});
                 L_limit = L_ordered[LIMIT - 1];
             }
-
+    
             float L_max = *std::max_element(pProcessedImage->L.cbegin(), pProcessedImage->L.cend());
             // convert 16bit gray to 24bit rgb
             TGAImage<Pixel24bit> result;
             result.header = pProcessedImage->pInputImage->header;
             result.pixels.resize(result.header.width * result.header.height);
             int counter = 0;
-
+    
             for (size_t i = 0; i < result.header.height; ++i) {
                 for (size_t j = 0; j < result.header.width; ++j) {
                     size_t pixelIdx = i * result.header.width + j;
@@ -245,14 +246,14 @@ int main()
                     }
                 }
             }
-
+    
             result.SaveTo("output\\result.tga");
-
+    
             delete pProcessedImage->pGrayImage;
             delete packageIn;
         }
     );
-
+    
     executor.Execute(true);
 
     while (!executor.IsDone())

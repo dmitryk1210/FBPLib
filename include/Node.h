@@ -40,6 +40,8 @@ public:
 
 	inline bool IsActive() const { return m_task_counter > 0; }
 
+	inline const std::string& GetName() { return m_name; }
+
 private:
 	SafeQueue<PackageBase*> m_package_queue;
 	std::string m_name;

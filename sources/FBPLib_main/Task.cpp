@@ -14,6 +14,7 @@ namespace fbp {
 Task::Task(const std::string& name)
 	: m_input_node           (nullptr)
 	, m_output_nodes         ()
+	, m_name_to_node         ()
 	, m_workerInstancesCount (0)
 	, m_finishedThreads      (0)
 	, m_name                 (name)
@@ -24,6 +25,7 @@ Task::Task(const std::string& name)
 Task::Task(const Task& task)
 	: m_input_node           (task.m_input_node)
 	, m_output_nodes         (task.m_output_nodes)
+	, m_name_to_node         (task.m_name_to_node)
 	, m_workerInstancesCount (task.m_workerInstancesCount)
 	, m_finishedThreads      (task.m_finishedThreads)
 	, m_name                 (task.m_name)
@@ -36,17 +38,28 @@ Task::~Task()
 {
 }
 
-void Task::Run(PackageBase* poriginal, PackageBase** ppresult, int& target_node) 
+void Task::Run(PackageBase* poriginal) 
 {
-	m_runnable_function(poriginal, ppresult, target_node);
+	m_runnable_function(poriginal, this);
 }
 
 void Task::SetOutputNodes(const std::vector<Node*>& nodes)
 {
 	m_output_nodes = nodes;
+	m_name_to_node.clear();
 	for (auto it = m_output_nodes.begin(); it != m_output_nodes.end(); ++it) {
+		m_name_to_node[(*it)->GetName()] = *it;
 		(*it)->HandleTaskAttached();
 	}
+}
+
+Node* Task::GetOutputNode(const std::string& nodeName)
+{
+	if (m_output_nodes.empty()) return nullptr;
+	if (nodeName == "") return m_output_nodes[0];
+	auto itNode = m_name_to_node.find(nodeName);
+	if (itNode == m_name_to_node.cend()) return nullptr;
+	return itNode->second;
 }
 
 int Task::GetAvaitingPackagesCount() { 
@@ -72,13 +85,7 @@ Task::WorkerInstanceIterationResult Task::workerInstanceDoTaskIteration()
 		return WorkerInstanceIterationResult::FINALIZED;
 	}
 
-	PackageBase* packageOut = nullptr;
-	int targetNode = 0;
-	Run(packageIn, &packageOut, targetNode);
-
-	if (packageOut) {
-		m_output_nodes[targetNode]->Push(packageOut);
-	}
+	Run(packageIn);
 
 	return WorkerInstanceIterationResult::PROCESSED;
 }
