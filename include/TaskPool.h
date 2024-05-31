@@ -18,15 +18,16 @@ private:
 		bool        wasStackEmptied   = false;
 	};
 
-	double CalculatePriority(TaskExecutionData& tED) {
+	double CalculatePriority(TaskExecutionData& tED, bool isCurrentTask) {
 		int size = tED.task->GetAvaitingPackagesCount();
 		if (size <= 0) return 0;
+		if (!isCurrentTask && tED.task->GetThreadsLimit() <= tED.workingThreads) return 0;
 		double result = 1.0;
 		if (tED.wasStackEmptied) result /= 64;
 		if (size < MIN_AVAITING_PACKAGES_COUNT) result /= 64;
 		
 		double speed = MAX(tED.processedPackages * 1.0 / tED.ticks, 0.0);
-		double totalSpeed = speed * tED.workingThreads;
+		double totalSpeed = speed * (tED.workingThreads - isCurrentTask);
 		double estimate = MIN(size / totalSpeed, INT_MAX);
 		result *= estimate;
 		return result;
@@ -38,5 +39,6 @@ private:
 public:
 	void  AddTask    (const std::string&, Task*);
 	Task* GetNextTask(Task* pCurTask = nullptr, uint32_t processedPackages = 0, bool wasStackEmptied = false);
+	bool  IsAllFinished();
 };
 }

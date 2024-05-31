@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 16.0.33328.57
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TracesExtraction", "TracesExtraction\TracesExtraction.vcxproj", "{2A88540D-5FAD-4699-9936-220F5ABFBA2C}"
+	ProjectSection(ProjectDependencies) = postProject
+		{AD1825D1-7045-47B4-91B8-BA55778C2D90} = {AD1825D1-7045-47B4-91B8-BA55778C2D90}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FBPLib_main", "..\..\FBPLib_main\FBPLib_main.vcxproj", "{AD1825D1-7045-47B4-91B8-BA55778C2D90}"
 EndProject

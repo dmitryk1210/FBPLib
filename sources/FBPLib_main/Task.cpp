@@ -19,6 +19,7 @@ Task::Task(const std::string& name)
 	, m_finishedThreads      (0)
 	, m_name                 (name)
 	, m_pPackageEndOfStream  (nullptr)
+	, m_threadsLimit         (UINT16_MAX)
 {
 }
 
@@ -31,6 +32,7 @@ Task::Task(const Task& task)
 	, m_name                 (task.m_name)
 	, m_runnable_function    (task.m_runnable_function)
 	, m_pPackageEndOfStream  (task.m_pPackageEndOfStream)
+	, m_threadsLimit         (task.m_threadsLimit)
 {
 }
 

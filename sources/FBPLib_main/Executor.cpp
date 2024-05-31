@@ -23,34 +23,40 @@ void Executor::ThreadExecute(int threadId)
 
 	DataCollectorInstance& localDataCollector = m_dataCollector.CreateInstance();
 
-	while (pTask = m_taskPool.GetNextTask(pTask, processedPackages, wasStackEmptied)) {
+	while ((pTask = m_taskPool.GetNextTask(pTask, processedPackages, wasStackEmptied)) || !m_taskPool.IsAllFinished()) {
 		processedPackages = 0;
 		wasStackEmptied   = false;
 
 		if (pTask != pPrevTask) {
 			if (pPrevTask) pPrevTask->TermWorkerInstance(&workerInstance);
-			pTask->InitWorkerInstance(&workerInstance);
+			if (pTask) pTask->InitWorkerInstance(&workerInstance);
 		}
 		pPrevTask = pTask;
 
 		start = std::chrono::high_resolution_clock::now();
 		end = start;
-		while (std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() < 10000 /*true*/) {
-			if (!workerInstance.Process()) {
-				wasStackEmptied = true;
+		if (pTask) {
+			while (std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() < 10000 /*true*/) {
+				if (!workerInstance.Process()) {
+					wasStackEmptied = true;
+					end = std::chrono::high_resolution_clock::now();
+					break;
+				}
+				processedPackages++;
 				end = std::chrono::high_resolution_clock::now();
-				break;
 			}
-			processedPackages++;
-			end = std::chrono::high_resolution_clock::now();
+			{
+				DataChunk chunk;
+				chunk.threadId = threadId;
+				chunk.taskName = pTask->GetName();
+				chunk.start = start;
+				chunk.stop = end;
+				localDataCollector.SubmitDataChunk(std::move(chunk));
+			}
 		}
-		{
-			DataChunk chunk;
-			chunk.threadId = threadId;
-			chunk.taskName = pTask->GetName();
-			chunk.start = start;
-			chunk.stop = end;
-			localDataCollector.SubmitDataChunk(std::move(chunk));
+		else {
+			using namespace std::chrono_literals;
+			std::this_thread::sleep_for(100ms);
 		}
 		
 	}
@@ -59,13 +65,13 @@ void Executor::ThreadExecute(int threadId)
 }
 
 
-void Executor::AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, const RunnableFunction& func)
+Task& Executor::AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, const RunnableFunction& func)
 {
 	Task taskToAdd = Task(name);
 	taskToAdd.SetInputNode(inputNode);
 	taskToAdd.SetOutputNodes(outputNodes);
 	taskToAdd.Assign(func);
-	m_tasks.insert(std::make_pair(name, taskToAdd));
+	return (m_tasks.insert(std::make_pair(name, taskToAdd))).first->second;
 }
 
 void Executor::Execute(bool collectDebugData)

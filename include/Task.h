@@ -72,11 +72,16 @@ public:
 
 	const std::string& GetName() const { return m_name; }
 
+	uint16_t GetThreadsLimit() { return m_threadsLimit; }
+	void SetThreadsLimit(int threadsLimit) { m_threadsLimit = threadsLimit; };
+
 private:
 	Node*                        m_input_node;
 	std::vector<Node*>           m_output_nodes;
 	std::map<std::string, Node*> m_name_to_node;
 	RunnableFunction             m_runnable_function;
+
+	uint16_t m_threadsLimit = UINT16_MAX;
 
 	int m_workerInstancesCount;
 	std::string m_name;

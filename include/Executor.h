@@ -19,13 +19,13 @@ public:
 		m_iMaxThreads = (iMaxThreads > 0) ? iMaxThreads : std::thread::hardware_concurrency();
 	}
 
-	void AddTask(const std::string& name, Node* inputNode, Node* outputNode, const RunnableFunction& func) {
+	Task& AddTask(const std::string& name, Node* inputNode, Node* outputNode, const RunnableFunction& func) {
 		std::vector<Node*> outputNodes;
 		outputNodes.push_back(outputNode);
-		AddTask(name, inputNode, outputNodes, func);
+		return AddTask(name, inputNode, outputNodes, func);
 	}
 
-	void AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, const RunnableFunction& func);
+	Task& AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, const RunnableFunction& func);
 
 	void Execute(bool collectDebugData = false);
 	void PrintDebugData(const char* filename);

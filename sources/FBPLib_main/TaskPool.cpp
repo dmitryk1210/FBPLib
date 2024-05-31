@@ -20,8 +20,9 @@ Task* TaskPool::GetNextTask(Task* pCurTask, uint32_t processedPackages, bool was
 	double maxTaskPriority = 0.0;
 
 	for (int i = 0; i < m_taskExecutionDatas.size(); ++i) {
-		priorities[i] = CalculatePriority(m_taskExecutionDatas[i]);
-		if (m_taskExecutionDatas[i].task == pCurTask) {
+		bool isCurrentTask = m_taskExecutionDatas[i].task == pCurTask;
+		priorities[i] = CalculatePriority(m_taskExecutionDatas[i], isCurrentTask);
+		if (isCurrentTask) {
 			curTaskIdx = i;
 			curTaskPriority = priorities[i];
 			m_taskExecutionDatas[i].ticks += 1;
@@ -45,6 +46,14 @@ Task* TaskPool::GetNextTask(Task* pCurTask, uint32_t processedPackages, bool was
 		return m_taskExecutionDatas[maxTaskIdx].task;
 	}
 	return nullptr;
+}
+
+bool TaskPool::IsAllFinished() {
+	int accumulate = 0;
+	for (auto item : m_taskExecutionDatas) {
+		accumulate += item.workingThreads;
+	}
+	return !accumulate;
 }
 
 }

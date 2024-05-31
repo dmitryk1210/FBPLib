@@ -145,7 +145,7 @@ int main()
     std::cout << "The image has been converted to grayscale and saved as output.tga.\n" << std::flush;
 #else
     Node nodeInput("Input");
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < 50; ++i) {
         nodeInput.Push(new PackageInput(&inputImage));
     }
     nodeInput.Push(new fbp::PackageEndOfStream());
@@ -176,7 +176,7 @@ int main()
             pTask->GetOutputNode()->Push(pGrayImage);
             delete packageIn;
         }
-    );
+    ).SetThreadsLimit(1);
 
     Node nodeContrast("Contrast");
     executor.AddTask("task_MakeContrast", &nodeGray, &nodeContrast,
