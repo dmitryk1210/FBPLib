@@ -4,7 +4,7 @@
 
 
 namespace fbp {
-class PackageBase
+struct PackageBase
 {
 public:
 	PackageBase() : m_flags(0) {}
@@ -24,11 +24,11 @@ private:
 		return true;
 	}
 
-	friend class PackageEndOfStream;
+	friend struct PackageEndOfStream;
 };
 
 
-class PackageEndOfStream : public PackageBase
+struct PackageEndOfStream : public PackageBase
 {
 public:
 	PackageEndOfStream() : PackageBase()

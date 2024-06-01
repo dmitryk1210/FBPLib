@@ -10,9 +10,8 @@
 #include "Task.h"
 
 
-class PackageDefault : public fbp::PackageBase
+struct PackageDefault : public fbp::PackageBase
 {
-public:
     PackageDefault() : PackageBase() { }
     uint32_t data;
 };
