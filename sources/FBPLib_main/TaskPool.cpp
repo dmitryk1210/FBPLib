@@ -25,9 +25,9 @@ Task* TaskPool::GetNextTask(Task* pCurTask, uint32_t processedPackages, bool was
 		if (isCurrentTask) {
 			curTaskIdx = i;
 			curTaskPriority = priorities[i];
-			m_taskExecutionDatas[i].ticks += 1;
-			m_taskExecutionDatas[i].processedPackages += processedPackages;
-			m_taskExecutionDatas[i].wasStackEmptied   =  wasStackEmptied;
+			m_taskExecutionDatas[i].ticks.fetch_add(1, std::memory_order_relaxed);
+			m_taskExecutionDatas[i].processedPackages.fetch_add(processedPackages, std::memory_order_relaxed);
+			m_taskExecutionDatas[i].wasStackEmptied.store(wasStackEmptied);
 		}
 		if (priorities[i] > maxTaskPriority) {
 			maxTaskIdx = i;
@@ -39,10 +39,10 @@ Task* TaskPool::GetNextTask(Task* pCurTask, uint32_t processedPackages, bool was
 		return pCurTask;
 	}
 	if (curTaskIdx >= 0) {
-		m_taskExecutionDatas[curTaskIdx].workingThreads -= 1;
+		m_taskExecutionDatas[curTaskIdx].workingThreads.fetch_add(-1);
 	}
 	if (maxTaskIdx >= 0) {
-		m_taskExecutionDatas[maxTaskIdx].workingThreads += 1;
+		m_taskExecutionDatas[maxTaskIdx].workingThreads.fetch_add(1);
 		return m_taskExecutionDatas[maxTaskIdx].task;
 	}
 	return nullptr;
@@ -50,8 +50,8 @@ Task* TaskPool::GetNextTask(Task* pCurTask, uint32_t processedPackages, bool was
 
 bool TaskPool::IsAllFinished() {
 	int accumulate = 0;
-	for (auto item : m_taskExecutionDatas) {
-		accumulate += item.workingThreads;
+	for (int i = 0; i < m_taskExecutionDatas.size(); ++i) {
+		accumulate += m_taskExecutionDatas[i].workingThreads;
 	}
 	return !accumulate;
 }

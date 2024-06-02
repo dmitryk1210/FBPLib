@@ -1,5 +1,8 @@
 #pragma once
 
+#include <atomic>
+#include <deque>
+
 #include "Task.h"
 
 #define MIN(a, b) a < b ? a : b
@@ -10,12 +13,12 @@ class TaskPool {
 private:
 	const int MIN_AVAITING_PACKAGES_COUNT = 32;
 	struct TaskExecutionData {
-		Task*       task              = nullptr;
-		std::string name              = "";
-		uint32_t    processedPackages = 0;
-		uint16_t    ticks             = 0;
-		uint16_t    workingThreads    = 0;
-		bool        wasStackEmptied   = false;
+		Task*                 task              = nullptr;
+		std::string           name              = "";
+		std::atomic<uint32_t> processedPackages = 0;
+		std::atomic<uint16_t> ticks             = 0;
+		std::atomic<uint16_t> workingThreads    = 0;
+		std::atomic<bool>     wasStackEmptied   = false;
 	};
 
 	double CalculatePriority(TaskExecutionData& tED, bool isCurrentTask) {
@@ -33,7 +36,7 @@ private:
 		return result;
 	}
 
-	std::vector<TaskExecutionData> m_taskExecutionDatas;
+	std::deque<TaskExecutionData> m_taskExecutionDatas;
 
 
 public:
