@@ -4,7 +4,7 @@
 
 typedef uint16_t PixelType;
 
-void ProcessPixel(PixelType* pxls, size_t width, size_t i, size_t j, size_t* pxlsK, float* pxlsL, PatternsLibrary& lib)
+void ProcessPixel(PixelType* pxls, size_t width, size_t i, size_t j, size_t* pxlK, float* pxlL, PatternsLibrary& lib)
 {
     size_t pixelIdx = i * width + j;
 
@@ -44,11 +44,11 @@ void ProcessPixel(PixelType* pxls, size_t width, size_t i, size_t j, size_t* pxl
         float SY = 0.f;
         float SYF = 0.f;
 
-        for (int p = 0; p < WL; ++p) {
-            for (int q = 0; q < WL; ++q) {
-                PixelType pxlColor = pxls[pixelIdx];
+        for (int p = -WL/2; p <= WL/2; ++p) {
+            for (int q = -WL/2; q <= WL/2; ++q) {
+                PixelType pxlColor = pxls[(i + p) * width + (j + q)]; // TODO check
                 SY += pxlColor;
-                SYF += pxlColor * pattern[p * WL + q];
+                SYF += pxlColor * pattern[(p + WL / 2) * WL + (q + WL / 2)];
             }
         }
 
@@ -76,6 +76,6 @@ void ProcessPixel(PixelType* pxls, size_t width, size_t i, size_t j, size_t* pxl
     }
 
 
-    pxlsK[pixelIdx] = k_ast_max;
-    pxlsL[pixelIdx] = L_ast_max;
+    *pxlK = k_ast_max;
+    *pxlL = L_ast_max;
 }

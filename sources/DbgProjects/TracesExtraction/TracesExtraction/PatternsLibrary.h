@@ -2,11 +2,13 @@
 
 #include <numeric>
 
-#define		UP3_SIZE		3
-#define		UP5_SIZE		5
-#define		UP7_SIZE		7
-#define		UP9_SIZE		9
-#define		UP11_SIZE		11
+#define		UP3_SIZE		3u
+#define		UP5_SIZE		5u
+#define		UP7_SIZE		7u
+#define		UP9_SIZE		9u
+#define		UP11_SIZE		11u
+
+#define		PATTERN_MAX_SIZE	UP11_SIZE
 
 #define		UP3_OFFSET		0
 #define		UP5_OFFSET		(UP3_OFFSET  + UP3_SIZE  * 2)
