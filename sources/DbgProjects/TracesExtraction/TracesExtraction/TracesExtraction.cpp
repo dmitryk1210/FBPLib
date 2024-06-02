@@ -59,7 +59,7 @@ struct PackageMergeTask : public PackageMerge
     virtual bool IsTask() override { return true; }
     
     TGAImage<Pixel24bit>* pInputImage = nullptr;
-    std::vector<size_t>   K;
+    std::vector<uint32_t> K;
     std::vector<float>    L;
      
     uint16_t              nProcessedChunks = 0;
@@ -69,26 +69,26 @@ struct PackageMergeTask : public PackageMerge
 struct PackageImageChunk : public PackageMerge
 {
     PackageMergeTask*     pMergeTask = nullptr;
-    size_t                pxlFrom    = 0;
-    size_t                pxlTo      = 0;
-    std::vector<size_t>   K_chunk;
+    uint32_t              pxlFrom    = 0;
+    uint32_t              pxlTo      = 0;
+    std::vector<uint32_t> K_chunk;
     std::vector<float>    L_chunk;
 };
 
 
-void ProcessPixel(PixelType* pxls, size_t width, size_t i, size_t j, size_t* pxlsK, float* pxlsL, PatternsLibrary& lib);
+void ProcessPixel(PixelType* pxls, uint32_t width, uint32_t i, uint32_t j, uint32_t* pxlsK, float* pxlsL, PatternsLibrary& lib);
 
 std::vector<float> ProcessImage(PGMImage<PixelType>& image)
 {
     PatternsLibrary lib;
     lib.Init();
-    size_t imageSize = image.pixels.size();
+    uint32_t imageSize = image.pixels.size();
 
-    std::vector<size_t> K(imageSize, 0);
-    std::vector<float>  L(imageSize, 0.f);
+    std::vector<uint32_t> K(imageSize, 0);
+    std::vector<float>    L(imageSize, 0.f);
 
-    for (size_t i = PATTERN_MAX_SIZE / 2; i < image.height - PATTERN_MAX_SIZE / 2; ++i) {
-        for (size_t j = PATTERN_MAX_SIZE / 2; j < image.width - PATTERN_MAX_SIZE / 2; ++j) {
+    for (uint32_t i = PATTERN_MAX_SIZE / 2; i < image.height - PATTERN_MAX_SIZE / 2; ++i) {
+        for (uint32_t j = PATTERN_MAX_SIZE / 2; j < image.width - PATTERN_MAX_SIZE / 2; ++j) {
             ProcessPixel(reinterpret_cast<PixelType*>(image.pixels.data()), image.width, i, j, &K[i * image.width + j], &L[i * image.width + j], lib);
         }
     }
@@ -110,7 +110,7 @@ int main()
         return 1;
     }
 
-    size_t imageSize = static_cast<size_t>(inputImage.header.width) * inputImage.header.height;
+    uint32_t imageSize = static_cast<uint32_t>(inputImage.header.width) * inputImage.header.height;
 
 #ifdef USE_SINGLE_THREAD
     PGMImage<uint16_t> imageGray;
@@ -118,7 +118,7 @@ int main()
     imageGray.width = inputImage.header.width;
     imageGray.height = inputImage.header.height;
 
-    for (size_t i = 0; i < imageSize; ++i) {
+    for (uint32_t i = 0; i < imageSize; ++i) {
         float color = 0.299f * inputImage.pixels[i].red + 0.587f * inputImage.pixels[i].green + 0.114f * inputImage.pixels[i].blue;
         imageGray.pixels[i] = static_cast<uint16_t>((color) * 0xFFu);
     }
@@ -145,9 +145,9 @@ int main()
     result.pixels.resize(imageSize);
     int counter = 0;
 
-    for (size_t i = 0; i < result.header.height; ++i) {
-        for (size_t j = 0; j < result.header.width; ++j) {
-            size_t pixelIdx = i * result.header.width + j;
+    for (uint32_t i = 0; i < result.header.height; ++i) {
+        for (uint32_t j = 0; j < result.header.width; ++j) {
+            uint32_t pixelIdx = i * result.header.width + j;
             result.pixels[pixelIdx].blue = 0;
             result.pixels[pixelIdx].green = 0;
             if (L_limit > L[pixelIdx]) {
@@ -184,13 +184,13 @@ int main()
             const TGAImage<Pixel24bit>& inputImage = *(pGrayImage->pInputImage);
             PGMImage<PixelType>&        imageGray  = *(pGrayImage->pGrayImage);
 
-            size_t imageSize = static_cast<size_t>(inputImage.header.width) * inputImage.header.height;
+            uint32_t imageSize = static_cast<uint32_t>(inputImage.header.width) * inputImage.header.height;
             
             imageGray.pixels.resize(imageSize);
             imageGray.width  = inputImage.header.width;
             imageGray.height = inputImage.header.height;
 
-            for (size_t i = 0; i < imageSize; ++i) {
+            for (uint32_t i = 0; i < imageSize; ++i) {
                 float color = 0.299f * inputImage.pixels[i].red + 0.587f * inputImage.pixels[i].green + 0.114f * inputImage.pixels[i].blue;
                 imageGray.pixels[i] = static_cast<PixelType>((color) * 0xFFu);
             }
@@ -232,13 +232,13 @@ int main()
                 delete pGrayImage;
             }
 
-            size_t pixelsToProcess = (pMergeTask->pGrayImage->height - PATTERN_MAX_SIZE + (PATTERN_MAX_SIZE & 0x01u)) * (pMergeTask->pGrayImage->width - PATTERN_MAX_SIZE + (PATTERN_MAX_SIZE & 0x01u));
+            uint32_t pixelsToProcess = (pMergeTask->pGrayImage->height - PATTERN_MAX_SIZE + (PATTERN_MAX_SIZE & 0x01u)) * (pMergeTask->pGrayImage->width - PATTERN_MAX_SIZE + (PATTERN_MAX_SIZE & 0x01u));
 
             pMergeTask->K.resize(pixelsToProcess);
             pMergeTask->L.resize(pixelsToProcess);
             pTask->GetOutputNode("MergeChunks")->Push(pMergeTask);
 
-            size_t nextChunkStartPxl = 0;
+            uint32_t nextChunkStartPxl = 0;
             for (int i = 0; i < CHUNKS_PER_IMAGE; ++i) {
                 PackageImageChunk* pChunk = new PackageImageChunk();
                 pChunk->id         = pMergeTask->id;
@@ -263,7 +263,7 @@ int main()
             PatternsLibrary lib;
             lib.Init();
 
-            for (size_t pxl = pChunk->pxlFrom; pxl < pChunk->pxlTo; ++pxl) {
+            for (uint32_t pxl = pChunk->pxlFrom; pxl < pChunk->pxlTo; ++pxl) {
                 uint16_t i = PATTERN_MAX_SIZE / 2 + pxl / widthToProcess;
                 uint16_t j = PATTERN_MAX_SIZE / 2 + pxl % widthToProcess;
 
@@ -290,7 +290,7 @@ int main()
             PackageImageChunk* pChunk = static_cast<PackageImageChunk*>(packageIn);
             PackageMergeTask* pMergeTask = idToTask[pChunk->id];
 
-            memcpy(pMergeTask->K.data() + pChunk->pxlFrom, pChunk->K_chunk.data(), (pChunk->pxlTo - pChunk->pxlFrom) * sizeof(size_t));
+            memcpy(pMergeTask->K.data() + pChunk->pxlFrom, pChunk->K_chunk.data(), (pChunk->pxlTo - pChunk->pxlFrom) * sizeof(uint32_t));
             memcpy(pMergeTask->L.data() + pChunk->pxlFrom, pChunk->L_chunk.data(), (pChunk->pxlTo - pChunk->pxlFrom) * sizeof(float ));
 
             delete pChunk;
@@ -338,16 +338,16 @@ int main()
 
             const int widthToProcess = (result.header.width - PATTERN_MAX_SIZE + (PATTERN_MAX_SIZE & 0x01u));
     
-            for (size_t i = 0; i < result.header.height; ++i) {
-                for (size_t j = 0; j < result.header.width; ++j) {
-                    size_t pixelIdx = i * result.header.width + j;
+            for (uint32_t i = 0; i < result.header.height; ++i) {
+                for (uint32_t j = 0; j < result.header.width; ++j) {
+                    uint32_t pixelIdx = i * result.header.width + j;
                     result.pixels[pixelIdx].blue = 0;
                     result.pixels[pixelIdx].green = 0;
                     if (i < PATTERN_MAX_SIZE / 2 || i >= (result.header.height - PATTERN_MAX_SIZE / 2) || j < PATTERN_MAX_SIZE / 2 || j >= (result.header.width - PATTERN_MAX_SIZE / 2)) {
                         result.pixels[pixelIdx].red = 0;
                         continue;
                     }
-                    size_t pixelProcessIdx = (i - PATTERN_MAX_SIZE / 2) * widthToProcess + (j - PATTERN_MAX_SIZE / 2);
+                    uint32_t pixelProcessIdx = (i - PATTERN_MAX_SIZE / 2) * widthToProcess + (j - PATTERN_MAX_SIZE / 2);
                     if (L_limit > pProcessedImage->L[pixelProcessIdx]) {
                         result.pixels[pixelIdx].red = 0;
                     }

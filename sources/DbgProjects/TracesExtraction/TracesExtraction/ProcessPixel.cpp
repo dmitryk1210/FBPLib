@@ -4,9 +4,9 @@
 
 typedef uint16_t PixelType;
 
-void ProcessPixel(PixelType* pxls, size_t width, size_t i, size_t j, size_t* pxlK, float* pxlL, PatternsLibrary& lib)
+void ProcessPixel(PixelType* pxls, uint32_t width, uint32_t i, uint32_t j, uint32_t* pxlK, float* pxlL, PatternsLibrary& lib)
 {
-    size_t pixelIdx = i * width + j;
+    uint32_t pixelIdx = i * width + j;
 
     int   k_ast_max = -1;
     float L_ast_max = 0.f;
