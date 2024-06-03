@@ -1,3 +1,6 @@
+// PatternsLibrary.h
+//
+
 #pragma once
 
 #include <numeric>

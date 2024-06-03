@@ -1,3 +1,6 @@
+// ProcessPixel.cpp
+//
+
 #include <numeric>
 
 #include "PatternsLibrary.h"

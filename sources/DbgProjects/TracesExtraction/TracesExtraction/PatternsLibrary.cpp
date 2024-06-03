@@ -1,4 +1,8 @@
+// PatternsLibrary.cpp
+//
+
 #include "PatternsLibrary.h"
+
 
 const uint8_t PatternsLibrary::up3[UP3_SIZE * 2][UP3_SIZE * UP3_SIZE] = {
 	{ //0 background
