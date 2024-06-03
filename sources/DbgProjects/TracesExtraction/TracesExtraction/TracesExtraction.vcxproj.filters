@@ -32,5 +32,8 @@
     <ClInclude Include="PatternsLibrary.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="TracesExtraction.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -175,6 +175,7 @@
   <ItemGroup>
     <ClInclude Include="Images.h" />
     <ClInclude Include="PatternsLibrary.h" />
+    <ClInclude Include="TracesExtraction.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

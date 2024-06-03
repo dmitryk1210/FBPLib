@@ -16,8 +16,29 @@
 
 #include "Images.h"
 #include "PatternsLibrary.h"
+#include "TracesExtraction.h"
 
-typedef uint16_t PixelType;
+
+#ifdef USE_SINGLE_THREAD
+
+std::vector<float> ProcessImage(PGMImage<PixelType>& image)
+{
+    PatternsLibrary lib;
+    lib.Init();
+    uint32_t imageSize = image.pixels.size();
+
+    std::vector<uint32_t> K(imageSize, 0);
+    std::vector<float>    L(imageSize, 0.f);
+
+    for (uint32_t i = PATTERN_MAX_SIZE / 2; i < image.height - PATTERN_MAX_SIZE / 2; ++i) {
+        for (uint32_t j = PATTERN_MAX_SIZE / 2; j < image.width - PATTERN_MAX_SIZE / 2; ++j) {
+            ProcessPixel(reinterpret_cast<PixelType*>(image.pixels.data()), image.width, i, j, &K[i * image.width + j], &L[i * image.width + j], lib);
+        }
+    }
+    return L;
+}
+
+#else
 
 struct PackageInput : public fbp::PackageBase
 {
@@ -75,27 +96,9 @@ struct PackageImageChunk : public PackageMerge
     std::vector<float>    L_chunk;
 };
 
+#endif // USE_SINGLE_THREAD
 
-void ProcessPixel(PixelType* pxls, uint32_t width, uint32_t i, uint32_t j, uint32_t* pxlsK, float* pxlsL, PatternsLibrary& lib);
 
-std::vector<float> ProcessImage(PGMImage<PixelType>& image)
-{
-    PatternsLibrary lib;
-    lib.Init();
-    uint32_t imageSize = image.pixels.size();
-
-    std::vector<uint32_t> K(imageSize, 0);
-    std::vector<float>    L(imageSize, 0.f);
-
-    for (uint32_t i = PATTERN_MAX_SIZE / 2; i < image.height - PATTERN_MAX_SIZE / 2; ++i) {
-        for (uint32_t j = PATTERN_MAX_SIZE / 2; j < image.width - PATTERN_MAX_SIZE / 2; ++j) {
-            ProcessPixel(reinterpret_cast<PixelType*>(image.pixels.data()), image.width, i, j, &K[i * image.width + j], &L[i * image.width + j], lib);
-        }
-    }
-    return L;
-}
-
-//#define USE_SINGLE_THREAD
 
 int main()
 {
@@ -139,7 +142,7 @@ int main()
     }
 
     float L_max = *std::max_element(L.cbegin(), L.cend());
-    // convert 16bit gray to 24bit rgb
+    
     TGAImage<Pixel24bit> result;
     result.header = inputImage.header;
     result.pixels.resize(imageSize);
@@ -162,8 +165,6 @@ int main()
 
     result.SaveTo("output\\result.tga");
 
-
-    std::cout << "The image has been converted to grayscale and saved as output.tga.\n" << std::flush;
 #else
     Node nodeInput("Input");
     for (int id = 0; id < 1; ++id) {

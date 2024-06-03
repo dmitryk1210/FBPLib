@@ -1,8 +1,8 @@
 #include <numeric>
 
 #include "PatternsLibrary.h"
+#include "TracesExtraction.h"
 
-typedef uint16_t PixelType;
 
 void ProcessPixel(PixelType* pxls, uint32_t width, uint32_t i, uint32_t j, uint32_t* pxlK, float* pxlL, PatternsLibrary& lib)
 {
@@ -46,7 +46,7 @@ void ProcessPixel(PixelType* pxls, uint32_t width, uint32_t i, uint32_t j, uint3
 
         for (int p = -WL/2; p <= WL/2; ++p) {
             for (int q = -WL/2; q <= WL/2; ++q) {
-                PixelType pxlColor = pxls[(i + p) * width + (j + q)]; // TODO check
+                PixelType pxlColor = pxls[(i + p) * width + (j + q)];
                 SY += pxlColor;
                 SYF += pxlColor * pattern[(p + WL / 2) * WL + (q + WL / 2)];
             }
