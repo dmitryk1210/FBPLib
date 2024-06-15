@@ -335,6 +335,7 @@ int main()
             TGAImage<Pixel24bit> result;
             result.header = pProcessedImage->pInputImage->header;
             result.pixels.resize(result.header.width * result.header.height);
+            memcpy(result.pixels.data(), pProcessedImage->pInputImage->pixels.data(), result.pixels.size() * sizeof(Pixel24bit));
             int counter = 0;
 
             const int widthToProcess = (result.header.width - PATTERN_MAX_SIZE + (PATTERN_MAX_SIZE & 0x01u));
@@ -342,19 +343,22 @@ int main()
             for (uint32_t i = 0; i < result.header.height; ++i) {
                 for (uint32_t j = 0; j < result.header.width; ++j) {
                     uint32_t pixelIdx = i * result.header.width + j;
-                    result.pixels[pixelIdx].blue = 0;
-                    result.pixels[pixelIdx].green = 0;
                     if (i < PATTERN_MAX_SIZE / 2 || i >= (result.header.height - PATTERN_MAX_SIZE / 2) || j < PATTERN_MAX_SIZE / 2 || j >= (result.header.width - PATTERN_MAX_SIZE / 2)) {
-                        result.pixels[pixelIdx].red = 0;
                         continue;
                     }
+                    
                     uint32_t pixelProcessIdx = (i - PATTERN_MAX_SIZE / 2) * widthToProcess + (j - PATTERN_MAX_SIZE / 2);
                     if (L_limit > pProcessedImage->L[pixelProcessIdx]) {
-                        result.pixels[pixelIdx].red = 0;
+                        continue;
                     }
-                    else {
-                        result.pixels[pixelIdx].red = static_cast<uint8_t>(std::clamp<uint32_t>(pProcessedImage->L[pixelProcessIdx] / L_max * UINT8_MAX, 0, UINT8_MAX));
-                        counter++;
+                    
+                    // draw square around point
+                    const int SQUARE_RADIUS = PATTERN_MAX_SIZE / 2;
+                    for (int k = -SQUARE_RADIUS; k < SQUARE_RADIUS; ++k) {
+                        result(i - SQUARE_RADIUS, j + k).Set(UINT8_MAX, 0, 0);
+                        result(i + SQUARE_RADIUS, j - k).Set(UINT8_MAX, 0, 0);
+                        result(i + k, j + SQUARE_RADIUS).Set(UINT8_MAX, 0, 0);
+                        result(i - k, j - SQUARE_RADIUS).Set(UINT8_MAX, 0, 0);
                     }
                 }
             }

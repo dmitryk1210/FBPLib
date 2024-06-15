@@ -28,6 +28,8 @@ struct Pixel24bit {
     uint8_t blue;
     uint8_t green;
     uint8_t red;
+
+    inline void Set(uint8_t r, uint8_t g, uint8_t b) { red = r; green = g; blue = b; }
 };
 
 template <typename T>
