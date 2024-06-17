@@ -96,6 +96,13 @@ struct PackageImageChunk : public PackageMerge
     std::vector<float>    L_chunk;
 };
 
+struct PackageSaveToFile : public fbp::PackageBase
+{
+    std::string filename;
+    TGAImage<Pixel24bit>* pTGAImage = nullptr;
+    PGMImage<PixelType>*  pPGMImage = nullptr;
+};
+
 #endif // USE_SINGLE_THREAD
 
 
@@ -173,7 +180,8 @@ int main()
     nodeInput.Push(new fbp::PackageEndOfStream());
 
     Node nodeGray("Gray");
-    executor.AddTask("task_MakeGray", &nodeInput, &nodeGray,
+    Node nodeSave("Save");
+    executor.AddTask("task_MakeGray", &nodeInput, std::vector{ &nodeGray, &nodeSave },
         [](fbp::PackageBase* packageIn, fbp::Task* pTask)
         {
             PackageInput* pInputImage = static_cast<PackageInput*>(packageIn);
@@ -195,12 +203,31 @@ int main()
                 float color = 0.299f * inputImage.pixels[i].red + 0.587f * inputImage.pixels[i].green + 0.114f * inputImage.pixels[i].blue;
                 imageGray.pixels[i] = static_cast<PixelType>((color) * 0xFFu);
             }
-            imageGray.SaveTo("output\\gray.pgm");
 
-            pTask->GetOutputNode()->Push(pGrayImage);
+            PackageSaveToFile* pSaveToFile = new PackageSaveToFile();
+            pSaveToFile->filename = "output\\gray.pgm";
+            pSaveToFile->pPGMImage = &imageGray;
+            pTask->GetOutputNode("Save")->Push(pSaveToFile);
+
+            pTask->GetOutputNode("Gray")->Push(pGrayImage);
             delete packageIn;
         }
     ).SetThreadsLimit(1);
+
+    Node nodeSaveout("Saveout");
+    executor.AddTask("task_Save", &nodeSave, &nodeSaveout,
+        [](fbp::PackageBase* packageIn, fbp::Task* pTask)
+        {
+            PackageSaveToFile* pSaveToFile = static_cast<PackageSaveToFile*>(packageIn);
+            if (pSaveToFile->pTGAImage) {
+                pSaveToFile->pTGAImage->SaveTo(pSaveToFile->filename);
+            }
+            if (pSaveToFile->pPGMImage) {
+                pSaveToFile->pPGMImage->SaveTo(pSaveToFile->filename);
+            }
+            delete packageIn;
+        }
+    );
 
     Node nodeContrast("Contrast");
     executor.AddTask("task_MakeContrast", &nodeGray, &nodeContrast,
