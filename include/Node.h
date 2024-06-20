@@ -4,7 +4,7 @@
 #include <string>
 
 
-#define LOCK_FREE_QUEUE
+//#define LOCK_FREE_QUEUE
 
 #ifdef LOCK_FREE_QUEUE
 #include "concurrentqueue/concurrentqueue.h"
@@ -23,7 +23,7 @@ class Node
 public:
 	Node(const std::string& name);
 
-	inline void Push(PackageBase* ppackage)
+	inline void Push(std::unique_ptr<PackageBase> ppackage)
 	{
 		if (ppackage->IsLast()) {
 			HandleTaskDetached();
@@ -37,15 +37,15 @@ public:
 		m_package_queue.Produce(std::move(ppackage));
 #endif // LOCK_FREE_QUEUE
 	}
-	inline PackageBase* Pop()
+	inline std::unique_ptr<PackageBase> Pop()
 	{
-		PackageBase* ppackage;
+		std::unique_ptr<PackageBase> ppackage;
 #ifdef LOCK_FREE_QUEUE
 		bool isSuccess = m_package_queue.try_dequeue(ppackage);
 #else
 		bool isSuccess = m_package_queue.Consume(ppackage);
 #endif // LOCK_FREE_QUEUE
-		return isSuccess ? ppackage : nullptr;
+		return ppackage;
 	}
 
 	inline int Count() { 
@@ -65,9 +65,9 @@ public:
 
 private:
 #ifdef LOCK_FREE_QUEUE
-	moodycamel::ConcurrentQueue<PackageBase*> m_package_queue;
+	moodycamel::ConcurrentQueue<std::unique_ptr<PackageBase>> m_package_queue;
 #else
-	SafeQueue<PackageBase*> m_package_queue;
+	SafeQueue<std::unique_ptr<PackageBase>> m_package_queue;
 #endif // LOCK_FREE_QUEUE
 	std::string m_name;
 

@@ -40,9 +40,9 @@ Task::~Task()
 {
 }
 
-void Task::Run(PackageBase* poriginal) 
+void Task::Run(std::unique_ptr<PackageBase> poriginal) 
 {
-	m_runnable_function(poriginal, this);
+	m_runnable_function(std::move(poriginal), this);
 }
 
 void Task::SetOutputNodes(const std::vector<Node*>& nodes)
@@ -77,17 +77,17 @@ Task::WorkerInstanceIterationResult Task::workerInstanceDoTaskIteration()
 		return WorkerInstanceIterationResult::SKIPPED;
 	}
 
-	PackageBase* packageIn = m_input_node->Pop();
+	std::unique_ptr<PackageBase> packageIn = m_input_node->Pop();
 	if (!packageIn) {
 		return WorkerInstanceIterationResult::SKIPPED;
 	}
 	if (packageIn->IsLast()) {
-		m_pPackageEndOfStream = packageIn;
+		m_pPackageEndOfStream = std::move(packageIn);
 		
 		return WorkerInstanceIterationResult::FINALIZED;
 	}
 
-	Run(packageIn);
+	Run(std::move(packageIn));
 
 	return WorkerInstanceIterationResult::PROCESSED;
 }

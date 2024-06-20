@@ -16,11 +16,10 @@ struct PackageDefault : public fbp::PackageBase
     uint32_t data;
 };
 
-void dummy(fbp::PackageBase* packageBaseIn, fbp::PackageBase* packageBaseOut, int power)
+void dummy(std::unique_ptr<fbp::PackageBase> packageBaseIn, fbp::PackageBase* packageBaseOut, int power)
 {
-    PackageDefault* packageIn = static_cast<PackageDefault*>(packageBaseIn);
     PackageDefault* packageOut = static_cast<PackageDefault*>(packageBaseOut);
-    uint32_t data = packageIn->data;
+    uint32_t data = static_cast<PackageDefault*>(packageBaseIn.get())->data;
     std::string temp;
     for (uint64_t iteration = 0; iteration < uint64_t(5 - power) * 1000; ++iteration)
     {
@@ -35,23 +34,18 @@ void generateRandomPackagesSet(fbp::Node* node, int count)
     int generatedCount = 0;
     while (generatedCount < count)
     {
-        PackageDefault* pack = new PackageDefault();
+        std::unique_ptr<PackageDefault> pack = std::make_unique<PackageDefault>();
         pack->data = std::rand();
         ++generatedCount;
-        node->Push(pack);
-
-        //std::stringstream ss;
-        //ss << "generated pack " << pack->data << " \n";
-        //std::string sstring = ss.str();
-        //std::cout << sstring;
+        node->Push(std::move(pack));
     }
-    node->Push(new fbp::PackageEndOfStream());
+    node->Push(std::make_unique<fbp::PackageEndOfStream>());
     std::cout << "generate " << count << " packages\n";
 }
 
-void taskReadFunc(fbp::PackageBase*,  fbp::Task*);
-void taskSortFunc(fbp::PackageBase*,  fbp::Task*);
-void taskPrintFunc(fbp::PackageBase*, fbp::Task*);
+void taskReadFunc(std::unique_ptr<fbp::PackageBase>,  fbp::Task*);
+void taskSortFunc(std::unique_ptr<fbp::PackageBase>,  fbp::Task*);
+void taskPrintFunc(std::unique_ptr<fbp::PackageBase>, fbp::Task*);
 
 
 int main()
@@ -79,46 +73,42 @@ int main()
     executor.AddTask("task_sort", &node_buf, task_sort_outputs, taskSortFunc);
 
     executor.AddTask("task_dummy1", &node_1, &node_prt,
-        [](fbp::PackageBase* packageIn, fbp::Task* pTask)
+        [](std::unique_ptr<fbp::PackageBase> packageIn, fbp::Task* pTask)
         {
-            PackageDefault* packageOut = new PackageDefault();
-            dummy(packageIn, packageOut, 1);
+            std::unique_ptr<fbp::PackageBase> packageOut = std::make_unique<PackageDefault>();
+            dummy(std::move(packageIn), packageOut.get(), 1);
             
-            pTask->GetOutputNode()->Push(packageOut);
-            delete packageIn;
+            pTask->GetOutputNode()->Push(std::move(packageOut));
         }
     );
 
     executor.AddTask("task_dummy2", &node_2, &node_prt,
-        [](fbp::PackageBase* packageIn, fbp::Task* pTask)
+        [](std::unique_ptr<fbp::PackageBase> packageIn, fbp::Task* pTask)
         {
-            PackageDefault* packageOut = new PackageDefault();
-            dummy(packageIn, packageOut, 2);
+            std::unique_ptr<PackageDefault> packageOut = std::make_unique<PackageDefault>();
+            dummy(std::move(packageIn), packageOut.get(), 2);
 
-            pTask->GetOutputNode()->Push(packageOut);
-            delete packageIn;
+            pTask->GetOutputNode()->Push(std::move(packageOut));
         }
     );
 
     executor.AddTask("task_dummy3", &node_3, &node_prt,
-        [](fbp::PackageBase* packageIn, fbp::Task* pTask)
+        [](std::unique_ptr<fbp::PackageBase> packageIn, fbp::Task* pTask)
         {
-            PackageDefault* packageOut = new PackageDefault();
-            dummy(packageIn, packageOut, 3);
+            std::unique_ptr<PackageDefault> packageOut = std::make_unique<PackageDefault>();
+            dummy(std::move(packageIn), packageOut.get(), 3);
 
-            pTask->GetOutputNode()->Push(packageOut);
-            delete packageIn;
+            pTask->GetOutputNode()->Push(std::move(packageOut));
         }
     );
 
     executor.AddTask("task_dummy4", &node_4, &node_prt,
-        [](fbp::PackageBase* packageIn, fbp::Task* pTask)
+        [](std::unique_ptr<fbp::PackageBase> packageIn, fbp::Task* pTask)
         {
-            PackageDefault* packageOut = new PackageDefault();
-            dummy(packageIn, packageOut, 4);
+            std::unique_ptr<PackageDefault> packageOut = std::make_unique<PackageDefault>();
+            dummy(std::move(packageIn), packageOut.get(), 4);
 
-            pTask->GetOutputNode()->Push(packageOut);
-            delete packageIn;
+            pTask->GetOutputNode()->Push(std::move(packageOut));
         }
     );
 
@@ -137,14 +127,14 @@ int main()
     return 0;
 }
 
-void taskReadFunc(fbp::PackageBase* packageIn, fbp::Task* pTask)
+void taskReadFunc(std::unique_ptr<fbp::PackageBase> packageIn, fbp::Task* pTask)
 {
-    pTask->GetOutputNode()->Push(packageIn);
+    pTask->GetOutputNode()->Push(std::move(packageIn));
 }
 
-void taskSortFunc(fbp::PackageBase* packageIn, fbp::Task* pTask)
+void taskSortFunc(std::unique_ptr<fbp::PackageBase> packageIn, fbp::Task* pTask)
 {
-    int nodeId = static_cast<PackageDefault*>(packageIn)->data % 4;
+    int nodeId = static_cast<PackageDefault*>(packageIn.get())->data % 4;
     std::string nameOutputNode = "";
     switch (nodeId) {
     case 0:
@@ -160,10 +150,9 @@ void taskSortFunc(fbp::PackageBase* packageIn, fbp::Task* pTask)
         nameOutputNode = "node_4";
         break;
     }
-    pTask->GetOutputNode(nameOutputNode)->Push(packageIn);
+    pTask->GetOutputNode(nameOutputNode)->Push(std::move(packageIn));
 }
 
-void taskPrintFunc(fbp::PackageBase* packageIn, fbp::Task* pTask)
+void taskPrintFunc(std::unique_ptr<fbp::PackageBase> packageIn, fbp::Task* pTask)
 {
-    delete packageIn;
 }

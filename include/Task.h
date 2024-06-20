@@ -5,6 +5,7 @@
 #include <cassert>
 #include <functional>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -17,7 +18,7 @@ namespace fbp {
 class Node;
 class Task;
 
-typedef std::function<void(PackageBase*, Task*)> RunnableFunction;
+typedef std::function<void(std::unique_ptr<PackageBase>, Task*)> RunnableFunction;
 
 class Task
 {
@@ -88,11 +89,11 @@ private:
 
 	std::mutex m_finishedThreadsMtx;
 	int m_finishedThreads;
-	PackageBase* m_pPackageEndOfStream;
+	std::shared_ptr<PackageBase> m_pPackageEndOfStream;
 
 	WorkerInstanceIterationResult workerInstanceDoTaskIteration();
 
-	void Run(PackageBase* poriginal);
+	void Run(std::unique_ptr<PackageBase> poriginal);
 
 	friend class WorkerInstance;
 };

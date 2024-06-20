@@ -42,28 +42,33 @@ std::vector<float> ProcessImage(PGMImage<PixelType>& image)
 
 struct PackageInput : public fbp::PackageBase
 {
-    PackageInput(TGAImage<Pixel24bit>* _pImage, uint32_t _id)
+    PackageInput(const std::shared_ptr<TGAImage<Pixel24bit>>& _pImage, uint32_t _id)
         : PackageBase()
         , pImage(_pImage)
         , id(_id) { }
 
-    TGAImage<Pixel24bit>* pImage = nullptr;
-    uint32_t              id     = 0;
+    PackageInput(std::shared_ptr<TGAImage<Pixel24bit>>&& _pImage, uint32_t _id)
+        : PackageBase()
+        , pImage(_pImage)
+        , id(_id) { }
+
+    std::shared_ptr<TGAImage<Pixel24bit>> pImage;
+    uint32_t id = 0;
 };
 
 struct PackageGrayImage : public fbp::PackageBase
 {
-    TGAImage<Pixel24bit>* pInputImage = nullptr;
-    PGMImage<PixelType>*  pGrayImage  = nullptr;
-    uint32_t              id          = 0;
+    std::shared_ptr<TGAImage<Pixel24bit>> pInputImage;
+    std::shared_ptr<PGMImage<PixelType>>  pGrayImage;
+    uint32_t id = 0;
 };
 
 struct PackageProcessedImage : public fbp::PackageBase
 {
-    TGAImage<Pixel24bit>* pInputImage = nullptr;
-    PGMImage<PixelType>*  pGrayImage  = nullptr;
-    std::vector<float>    L;
-    uint32_t              id          = 0;
+    std::shared_ptr<TGAImage<Pixel24bit>> pInputImage;
+    std::shared_ptr<PGMImage<PixelType>>  pGrayImage;
+    std::vector<float> L;
+    uint32_t           id          = 0;
 };
 
 struct PackageMerge : public fbp::PackageBase
@@ -72,17 +77,16 @@ struct PackageMerge : public fbp::PackageBase
 
     uint32_t id = 0;
 
-    PGMImage<PixelType>* pGrayImage = nullptr;
+    std::shared_ptr<PGMImage<PixelType>> pGrayImage;
 };
 
 struct PackageMergeTask : public PackageMerge
 {
     virtual bool IsTask() override { return true; }
     
-    TGAImage<Pixel24bit>* pInputImage = nullptr;
+    std::shared_ptr<TGAImage<Pixel24bit>> pInputImage;
     std::vector<uint32_t> K;
     std::vector<float>    L;
-     
     uint16_t              nProcessedChunks = 0;
     uint16_t              nChunks          = 0;
 };
@@ -99,13 +103,19 @@ struct PackageImageChunk : public PackageMerge
 struct PackageSaveToFile : public fbp::PackageBase
 {
     std::string filename;
-    TGAImage<Pixel24bit>* pTGAImage = nullptr;
-    PGMImage<PixelType>*  pPGMImage = nullptr;
+    std::shared_ptr<TGAImage<Pixel24bit>> pTGAImage;
+    std::shared_ptr<PGMImage<PixelType>>  pPGMImage;
 };
+
+typedef std::unique_ptr<fbp::PackageBase> uptr_PackageBase;
 
 #endif // USE_SINGLE_THREAD
 
 
+template <typename Derived, typename Base>
+std::unique_ptr<Derived> uniquePtrCast(std::unique_ptr<Base> ptr) {
+    return std::unique_ptr<Derived>(static_cast<Derived*>(ptr.release()));
+}
 
 int main()
 {
@@ -115,6 +125,7 @@ int main()
 
     auto start = std::chrono::high_resolution_clock::now();
 
+#ifdef USE_SINGLE_THREAD
     TGAImage<Pixel24bit> inputImage;
     if (inputImage.LoadFrom("example01.tga")) {
         return 1;
@@ -122,7 +133,6 @@ int main()
 
     uint32_t imageSize = static_cast<uint32_t>(inputImage.header.width) * inputImage.header.height;
 
-#ifdef USE_SINGLE_THREAD
     PGMImage<uint16_t> imageGray;
     imageGray.pixels.resize(imageSize);
     imageGray.width = inputImage.header.width;
@@ -175,20 +185,25 @@ int main()
 #else
     Node nodeInput("Input");
     for (int id = 0; id < 1; ++id) {
-        nodeInput.Push(new PackageInput(&inputImage, id));
+        std::shared_ptr<TGAImage<Pixel24bit>> pInputImage = std::make_shared<TGAImage<Pixel24bit>>();
+        if (pInputImage->LoadFrom("example01.tga")) {
+            assert(false);
+            return -1;
+        }
+        nodeInput.Push(std::make_unique<PackageInput>(pInputImage, id));
     }
-    nodeInput.Push(new fbp::PackageEndOfStream());
+    nodeInput.Push(std::make_unique<fbp::PackageEndOfStream>());
 
     Node nodeGray("Gray");
     Node nodeSave("Save");
     executor.AddTask("task_MakeGray", &nodeInput, std::vector{ &nodeGray, &nodeSave },
-        [](fbp::PackageBase* packageIn, fbp::Task* pTask)
+        [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
-            PackageInput* pInputImage = static_cast<PackageInput*>(packageIn);
-            PackageGrayImage* pGrayImage = new PackageGrayImage();
+            std::unique_ptr<PackageInput> pInputImage    = uniquePtrCast<PackageInput>(std::move(packageIn));
+            std::unique_ptr<PackageGrayImage> pGrayImage = std::make_unique<PackageGrayImage>();
 
             pGrayImage->pInputImage = pInputImage->pImage;
-            pGrayImage->pGrayImage  = new PGMImage<PixelType>();
+            pGrayImage->pGrayImage  = std::make_shared<PGMImage<PixelType>>();
             pGrayImage->id          = pInputImage->id;
             const TGAImage<Pixel24bit>& inputImage = *(pGrayImage->pInputImage);
             PGMImage<PixelType>&        imageGray  = *(pGrayImage->pGrayImage);
@@ -204,40 +219,38 @@ int main()
                 imageGray.pixels[i] = static_cast<PixelType>((color) * 0xFFu);
             }
 
-            PackageSaveToFile* pSaveToFile = new PackageSaveToFile();
+            std::unique_ptr<PackageSaveToFile> pSaveToFile = std::make_unique<PackageSaveToFile>();
             pSaveToFile->filename = "output\\gray.pgm";
-            pSaveToFile->pPGMImage = &imageGray;
-            pTask->GetOutputNode("Save")->Push(pSaveToFile);
+            pSaveToFile->pPGMImage = pGrayImage->pGrayImage;
+            pTask->GetOutputNode("Save")->Push(std::move(pSaveToFile));
 
-            pTask->GetOutputNode("Gray")->Push(pGrayImage);
-            delete packageIn;
+            pTask->GetOutputNode("Gray")->Push(std::move(pGrayImage));
         }
     ).SetThreadsLimit(1);
 
     Node nodeSaveout("Saveout");
     executor.AddTask("task_Save", &nodeSave, &nodeSaveout,
-        [](fbp::PackageBase* packageIn, fbp::Task* pTask)
+        [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
-            PackageSaveToFile* pSaveToFile = static_cast<PackageSaveToFile*>(packageIn);
+            std::unique_ptr<PackageSaveToFile> pSaveToFile = uniquePtrCast<PackageSaveToFile>(std::move(packageIn));
             if (pSaveToFile->pTGAImage) {
                 pSaveToFile->pTGAImage->SaveTo(pSaveToFile->filename);
             }
             if (pSaveToFile->pPGMImage) {
                 pSaveToFile->pPGMImage->SaveTo(pSaveToFile->filename);
             }
-            delete packageIn;
         }
     );
 
     Node nodeContrast("Contrast");
     executor.AddTask("task_MakeContrast", &nodeGray, &nodeContrast,
-        [](fbp::PackageBase* packageIn, fbp::Task* pTask)
+        [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
-            PackageGrayImage* pGrayImage = static_cast<PackageGrayImage*>(packageIn);
+            std::unique_ptr<PackageGrayImage> pGrayImage = uniquePtrCast<PackageGrayImage>(std::move(packageIn));
             pGrayImage->pGrayImage->AddContrastFilter(50);
             pGrayImage->pGrayImage->SaveTo("output\\grayContrast.pgm");
     
-            pTask->GetOutputNode()->Push(packageIn);
+            pTask->GetOutputNode()->Push(std::move(pGrayImage));
         }
     );
     
@@ -245,47 +258,45 @@ int main()
     Node nodeMergeChunks("MergeChunks");
 
     executor.AddTask("task_SliceChunks", &nodeContrast, std::vector{ &nodeChunksToProcess, &nodeMergeChunks }, 
-        [](fbp::PackageBase * packageIn, fbp::Task * pTask)
+        [](uptr_PackageBase packageIn, fbp::Task * pTask)
         {
             const int CHUNKS_PER_IMAGE = 32;
-            PackageMergeTask* pMergeTask = new PackageMergeTask();
+            std::unique_ptr<PackageMergeTask> pMergeTask = std::make_unique<PackageMergeTask>();
 
             {
-                PackageGrayImage* pGrayImage = static_cast<PackageGrayImage*>(packageIn);
+                std::unique_ptr<PackageGrayImage> pGrayImage = uniquePtrCast<PackageGrayImage>(std::move(packageIn));
                 pMergeTask->pInputImage = pGrayImage->pInputImage;
                 pMergeTask->pGrayImage  = pGrayImage->pGrayImage;
                 pMergeTask->id          = pGrayImage->id;
                 pMergeTask->nChunks     = CHUNKS_PER_IMAGE;
-
-                delete pGrayImage;
             }
 
             uint32_t pixelsToProcess = (pMergeTask->pGrayImage->height - PATTERN_MAX_SIZE + (PATTERN_MAX_SIZE & 0x01u)) * (pMergeTask->pGrayImage->width - PATTERN_MAX_SIZE + (PATTERN_MAX_SIZE & 0x01u));
 
             pMergeTask->K.resize(pixelsToProcess);
             pMergeTask->L.resize(pixelsToProcess);
-            pTask->GetOutputNode("MergeChunks")->Push(pMergeTask);
 
             uint32_t nextChunkStartPxl = 0;
             for (int i = 0; i < CHUNKS_PER_IMAGE; ++i) {
-                PackageImageChunk* pChunk = new PackageImageChunk();
+                std::unique_ptr<PackageImageChunk> pChunk = std::make_unique<PackageImageChunk>();
                 pChunk->id         = pMergeTask->id;
                 pChunk->pGrayImage = pMergeTask->pGrayImage;
-                pChunk->pMergeTask = pMergeTask;
+                pChunk->pMergeTask = &(*pMergeTask);
                 pChunk->pxlFrom    = nextChunkStartPxl;
                 nextChunkStartPxl  = pixelsToProcess / CHUNKS_PER_IMAGE * (i + 1);
                 pChunk->pxlTo      = (i == CHUNKS_PER_IMAGE - 1 ? pixelsToProcess : nextChunkStartPxl);
                 pChunk->K_chunk.resize(pChunk->pxlTo - pChunk->pxlFrom);
                 pChunk->L_chunk.resize(pChunk->pxlTo - pChunk->pxlFrom);
-                pTask->GetOutputNode("ChunksToProcess")->Push(pChunk);
+                pTask->GetOutputNode("ChunksToProcess")->Push(std::move(pChunk));
             }
+            pTask->GetOutputNode("MergeChunks")->Push(std::move(pMergeTask));
         }
     ).SetThreadsLimit(1);
 
     executor.AddTask("task_ProcessChunks", &nodeChunksToProcess, &nodeMergeChunks,
-        [](fbp::PackageBase* packageIn, fbp::Task* pTask)
+        [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
-            PackageImageChunk* pChunk = static_cast<PackageImageChunk*>(packageIn);
+            std::unique_ptr<PackageImageChunk> pChunk = uniquePtrCast<PackageImageChunk>(std::move(packageIn));
             const size_t widthToProcess = (pChunk->pGrayImage->width - PATTERN_MAX_SIZE + (PATTERN_MAX_SIZE & 0x01u));
 
             PatternsLibrary lib;
@@ -298,56 +309,54 @@ int main()
                 ProcessPixel(reinterpret_cast<PixelType*>(pChunk->pGrayImage->pixels.data()), pChunk->pGrayImage->width, i, j, &(pChunk->K_chunk[pxl - pChunk->pxlFrom]), &(pChunk->L_chunk[pxl - pChunk->pxlFrom]), lib);
             }
 
-            pTask->GetOutputNode("MergeChunks")->Push(pChunk);
-
+            pTask->GetOutputNode("MergeChunks")->Push(std::move(pChunk));
         }
     );
 
     
     Node nodeProcessedImages("ProcessedImages");
     executor.AddTask("task_MergeChunks", &nodeMergeChunks, &nodeProcessedImages,
-        [](fbp::PackageBase* packageIn, fbp::Task* pTask)
+        [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
-            static std::map<uint32_t, PackageMergeTask*> idToTask;
-            if (static_cast<PackageMerge*>(packageIn)->IsTask()) {
-                PackageMergeTask* pMergeTask = static_cast<PackageMergeTask*>(packageIn);
-                idToTask.insert(std::make_pair(pMergeTask->id, pMergeTask));
+            static std::map<uint32_t, std::shared_ptr<PackageMergeTask>> idToTask;
+            std::unique_ptr<PackageMerge> pMerge = uniquePtrCast<PackageMerge>(std::move(packageIn));
+            if (pMerge->IsTask()) {
+                std::unique_ptr<PackageMergeTask> pMergeTask = uniquePtrCast<PackageMergeTask>(std::move(pMerge));
+                uint32_t id = pMergeTask->id;
+                idToTask.insert(std::make_pair(id, std::shared_ptr<PackageMergeTask>(std::move(pMergeTask))));
                 return;
             }
 
-            PackageImageChunk* pChunk = static_cast<PackageImageChunk*>(packageIn);
-            PackageMergeTask* pMergeTask = idToTask[pChunk->id];
+            std::unique_ptr<PackageImageChunk> pChunk = uniquePtrCast<PackageImageChunk>(std::move(pMerge));
+            std::shared_ptr<PackageMergeTask> pMergeTask = idToTask[pChunk->id];
 
             memcpy(pMergeTask->K.data() + pChunk->pxlFrom, pChunk->K_chunk.data(), (pChunk->pxlTo - pChunk->pxlFrom) * sizeof(uint32_t));
             memcpy(pMergeTask->L.data() + pChunk->pxlFrom, pChunk->L_chunk.data(), (pChunk->pxlTo - pChunk->pxlFrom) * sizeof(float ));
 
-            delete pChunk;
-            pChunk = NULL;
+            pChunk.reset();
 
             pMergeTask->nProcessedChunks += 1;
             if (pMergeTask->nProcessedChunks != pMergeTask->nChunks) {
                 return;
             }
 
-            idToTask.erase(pMergeTask->id);
-
-            PackageProcessedImage* pProcessedImage = new PackageProcessedImage();
+            std::unique_ptr<PackageProcessedImage> pProcessedImage = std::make_unique<PackageProcessedImage>();
             pProcessedImage->id = pMergeTask->id;
             pProcessedImage->pInputImage = pMergeTask->pInputImage;
             pProcessedImage->pGrayImage  = pMergeTask->pGrayImage;
             pProcessedImage->L           = std::move(pMergeTask->L);
+            idToTask.erase(pMergeTask->id);
+            assert(pMergeTask.use_count() == 1);
 
-            delete pMergeTask;
-
-            pTask->GetOutputNode("ProcessedImages")->Push(pProcessedImage);
+            pTask->GetOutputNode("ProcessedImages")->Push(std::move(pProcessedImage));
         }
     ).SetThreadsLimit(1);
     
     Node nodeOutput("Output");
     executor.AddTask("task_Filter", &nodeProcessedImages, &nodeOutput,
-        [](fbp::PackageBase* packageIn, fbp::Task* pTask)
+        [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
-            PackageProcessedImage* pProcessedImage = static_cast<PackageProcessedImage*>(packageIn);
+            std::unique_ptr<PackageProcessedImage> pProcessedImage = uniquePtrCast<PackageProcessedImage>(std::move(packageIn));
     
             float L_limit = 0;
             {
@@ -391,9 +400,6 @@ int main()
             }
     
             result.SaveTo("output\\result.tga");
-    
-            delete pProcessedImage->pGrayImage;
-            delete packageIn;
         }
     );
     
