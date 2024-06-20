@@ -14,8 +14,7 @@ class Executor
 {
 public:
 
-	Executor(bool bManualThreadDistribution = false, int iMaxThreads = -1)
-		: m_bManualThreadDistribution(bManualThreadDistribution) {
+	Executor(int iMaxThreads = -1) {
 		m_iMaxThreads = (iMaxThreads > 0) ? iMaxThreads : std::thread::hardware_concurrency();
 	}
 
@@ -27,7 +26,9 @@ public:
 
 	Task& AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, const RunnableFunction& func);
 
-	void Execute(bool collectDebugData = false);
+	void Execute();
+	void Await();
+	void ExecuteAndAwait();
 	void PrintDebugData(const char* filename);
 
 	void Terminate();
@@ -46,14 +47,12 @@ private:
 		bool forceStopThread = false;
 	};
 	
-	bool m_bManualThreadDistribution;
-	
 
 	std::map<std::string, fbp::Task> m_tasks;
 
 	std::vector<std::thread> m_threads;
-	size_t                   m_iMaxThreads;
-	std::atomic<size_t>      m_threadsFinished{ 0 };
+	uint16_t                 m_iMaxThreads;
+	std::atomic<uint16_t>    m_threadsFinished{ 0u };
 	std::vector<ThreadData>  m_threadDatas;
 
 	TaskPool m_taskPool;

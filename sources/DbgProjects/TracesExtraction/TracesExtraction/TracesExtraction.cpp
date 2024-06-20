@@ -397,12 +397,7 @@ int main()
         }
     );
     
-    executor.Execute(true);
-
-    while (!executor.IsDone())
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
+    executor.ExecuteAndAwait();
     executor.PrintDebugData("output\\debugData.out");
     executor.Terminate();
 

@@ -124,12 +124,7 @@ int main()
 
     executor.AddTask("task_print", &node_prt, &node_out, taskPrintFunc);
 
-    executor.Execute(true);
-
-    while (!executor.IsDone())
-    {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
+    executor.ExecuteAndAwait();
     executor.PrintDebugData("debugData.out");
     executor.Terminate();
     std::cout << "the end! =)\n";
