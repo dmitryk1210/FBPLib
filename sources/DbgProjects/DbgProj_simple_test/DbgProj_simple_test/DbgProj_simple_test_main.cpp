@@ -5,9 +5,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "Executor.h"
-#include "Node.h"
-#include "Task.h"
+#include "fbplib.h"
 
 
 struct PackageDefault : public fbp::PackageBase
