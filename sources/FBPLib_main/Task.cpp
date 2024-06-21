@@ -64,8 +64,8 @@ Node* Task::GetOutputNode(const std::string& nodeName)
 	return itNode->second;
 }
 
-int Task::GetAvaitingPackagesCount() { 
-	return m_input_node->Count(); 
+int Task::GetAvaitingPackagesCountApprox() { 
+	return m_input_node->CountApprox(); 
 }
 
 Task::WorkerInstanceIterationResult Task::workerInstanceDoTaskIteration()

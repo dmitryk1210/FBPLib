@@ -48,7 +48,7 @@ public:
 		return ppackage;
 	}
 
-	inline int Count() { 
+	inline int CountApprox() { 
 #ifdef LOCK_FREE_QUEUE
 		return m_package_queue.size_approx();
 #else

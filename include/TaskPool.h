@@ -22,7 +22,7 @@ private:
 	};
 
 	double CalculatePriority(TaskExecutionData& tED, bool isCurrentTask) {
-		int size = tED.task->GetAvaitingPackagesCount();
+		int size = tED.task->GetAvaitingPackagesCountApprox();
 		if (size <= 0) return 0;
 		if (!isCurrentTask && tED.task->GetThreadsLimit() <= tED.workingThreads) return 0;
 		double result = 1.0;

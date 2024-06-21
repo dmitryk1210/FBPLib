@@ -56,7 +56,9 @@ private:
 	std::vector<ThreadData>  m_threadDatas;
 
 	TaskPool m_taskPool;
+#ifdef FBP_ENABLE_DATA_COLLECTOR
 	DataCollector m_dataCollector;
+#endif // #ifdef FBP_ENABLE_DATA_COLLECTOR
 
 	void ThreadExecute(int);
 

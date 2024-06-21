@@ -1,8 +1,9 @@
 #include "pch.h"
 
+#ifdef FBP_ENABLE_DATA_COLLECTOR
+
 #include "DataCollector.h"
 #include "DataCollectorConstants.h"
-
 
 
 namespace fbp {
@@ -41,3 +42,4 @@ void DataCollector::PrintCollectedData(std::ostream& out) const {
 }
 
 }
+#endif // FBP_ENABLE_DATA_COLLECTOR

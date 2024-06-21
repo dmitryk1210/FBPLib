@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef FBP_ENABLE_DATA_COLLECTOR
+
 #include <chrono>
 #include <vector>
 #include <mutex>
@@ -45,3 +47,4 @@ public:
 };
 
 }
+#endif // FBP_ENABLE_DATA_COLLECTOR

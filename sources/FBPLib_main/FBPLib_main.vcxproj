@@ -172,6 +172,7 @@
     <ClInclude Include="..\..\include\DataCollectorConstants.h" />
     <ClInclude Include="..\..\include\fbplib.h" />
     <ClInclude Include="..\..\include\Node.h" />
+    <ClInclude Include="..\..\include\os.h" />
     <ClInclude Include="..\..\include\PackageBase.h" />
     <ClInclude Include="..\..\include\Task.h" />
     <ClInclude Include="..\..\include\Executor.h" />
