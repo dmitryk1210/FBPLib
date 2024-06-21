@@ -69,7 +69,7 @@ public:
 		--m_workerInstancesCount;
 	}
 
-	int GetAvaitingPackagesCount();
+	int GetAvaitingPackagesCountApprox();
 
 	const std::string& GetName() const { return m_name; }
 
