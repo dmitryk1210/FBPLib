@@ -4,10 +4,7 @@
 #include <fstream>
 #include <iostream>
 
-#ifdef _WIN32
-#include <windows.h>
-#endif // _WIN32
-
+#include "os.h"
 #include "Executor.h"
 
 
@@ -38,17 +35,18 @@ void Executor::ThreadExecute(int threadId)
 		}
 		pPrevTask = pTask;
 
-		start = std::chrono::high_resolution_clock::now();
+		start = std::chrono::steady_clock::now();
 		end = start;
 		if (pTask) {
-			while (std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() < 10000 /*true*/) {
+			using namespace std::chrono_literals;
+			while (end - start < 10ms) {
 				if (!workerInstance.Process()) {
 					wasStackEmptied = true;
-					end = std::chrono::high_resolution_clock::now();
+					end = std::chrono::steady_clock::now();
 					break;
 				}
 				processedPackages++;
-				end = std::chrono::high_resolution_clock::now();
+				end = std::chrono::steady_clock::now();
 			}
 
 #ifdef FBP_ENABLE_DATA_COLLECTOR
@@ -62,7 +60,7 @@ void Executor::ThreadExecute(int threadId)
 		}
 		else {
 			using namespace std::chrono_literals;
-			std::this_thread::sleep_for(100ms);
+			std::this_thread::sleep_for(10ms);
 		}
 		
 	}
@@ -89,9 +87,7 @@ void Executor::Execute()
 	}
 
 	m_threads.clear();
-	m_threadDatas.clear();
 	m_threads.reserve(numThreads);
-	m_threadDatas.reserve(numThreads);
 
 #ifdef FBP_ENABLE_DATA_COLLECTOR
 	m_dataCollector.SetStartTimePoint(std::chrono::high_resolution_clock::now());
@@ -99,13 +95,11 @@ void Executor::Execute()
 
 	for (uint16_t i = 0; i < m_iMaxThreads; ++i) {
 		m_threads.push_back(std::thread([this, i]() { this->ThreadExecute(i); }));
-#ifdef _WIN32
-		DWORD_PTR dw = SetThreadAffinityMask(m_threads[i].native_handle(), DWORD_PTR(1) << (i % m_iMaxThreads));
-		if (dw == 0) {
-			DWORD dwErr = GetLastError();
-			std::cerr << "SetThreadAffinityMask failed, GLE=" << dwErr << '\n';
+		uint32_t err = osSetThreadAffinityMask(m_threads[i], (1u << i));
+		if (err) {
+			std::cerr << "osSetThreadAffinityMask failed, error=" << err << '\n';
 		}
-#endif // _WIN32
+
 	}
 }
 
@@ -141,7 +135,6 @@ void Executor::Terminate()
 {
 	Await();
 	m_threads.clear();
-	m_threadDatas.clear();
 }
 }
 
