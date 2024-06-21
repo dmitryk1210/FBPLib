@@ -37,7 +37,7 @@ public:
 		return m_iMaxThreads == m_threadsFinished.load();
 	}
 
-	const Task& GetTask(const std::string& name) { return m_tasks.find(name)->second; }
+	Task& GetTask(const std::string& name) { return m_tasks.find(name)->second; }
 
 private:
 	struct ThreadData {
