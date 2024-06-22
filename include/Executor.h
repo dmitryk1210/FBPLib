@@ -5,6 +5,7 @@
 #include <thread>
 
 #include "DataCollector.h"
+#include "Node.h"
 #include "Task.h"
 #include "TaskPool.h"
 
@@ -16,6 +17,18 @@ public:
 
 	Executor(int iMaxThreads = -1) {
 		m_iMaxThreads = (iMaxThreads > 0) ? iMaxThreads : std::thread::hardware_concurrency();
+	}
+
+	void SetInitialNode(Node * initialNode) {
+		if (m_initialNode) {
+			m_initialNode->OnGetLast.unsubscribe(this);
+		}
+		m_initialNode = initialNode;
+		if (m_initialNode) {
+			m_initialNode->OnGetLast.subscribe(this, [this]() {
+				m_packageStreamStopped.store(true, std::memory_order_relaxed);
+			});
+		}
 	}
 
 	Task& AddTask(const std::string& name, Node* inputNode, Node* outputNode, const RunnableFunction& func) {
@@ -39,6 +52,7 @@ public:
 
 	Task& GetTask(const std::string& name) { return m_tasks.find(name)->second; }
 
+
 private:
 	struct ThreadData {
 		int id = -1;
@@ -53,13 +67,16 @@ private:
 	std::vector<std::thread> m_threads;
 	uint16_t                 m_iMaxThreads;
 	std::atomic<uint16_t>    m_threadsFinished{ 0u };
-	std::vector<ThreadData>  m_threadDatas;
+
+	Node*                    m_initialNode = nullptr;
+	std::atomic<bool>        m_packageStreamStopped = false;
 
 	TaskPool m_taskPool;
 #ifdef FBP_ENABLE_DATA_COLLECTOR
 	DataCollector m_dataCollector;
 #endif // #ifdef FBP_ENABLE_DATA_COLLECTOR
 
+	bool IsPackageStreamStopped() { return m_packageStreamStopped.load(); }
 	void ThreadExecute(int);
 
 };

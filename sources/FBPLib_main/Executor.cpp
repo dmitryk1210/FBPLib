@@ -25,7 +25,7 @@ void Executor::ThreadExecute(int threadId)
 	DataCollectorInstance& localDataCollector = m_dataCollector.CreateInstance();
 #endif // FBP_ENABLE_DATA_COLLECTOR
 
-	while ((pTask = m_taskPool.GetNextTask(pTask, processedPackages, wasStackEmptied)) || !m_taskPool.IsAllFinished()) {
+	while ((pTask = m_taskPool.GetNextTask(pTask, processedPackages, wasStackEmptied)) || !m_taskPool.IsAllFinished() || !IsPackageStreamStopped()) {
 		processedPackages = 0;
 		wasStackEmptied   = false;
 
@@ -135,6 +135,9 @@ void Executor::Terminate()
 {
 	Await();
 	m_threads.clear();
+	if (m_initialNode) {
+		m_initialNode->OnGetLast.unsubscribe(this);
+	}
 }
 }
 

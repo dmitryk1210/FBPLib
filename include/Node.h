@@ -4,7 +4,7 @@
 #include <string>
 
 
-//#define LOCK_FREE_QUEUE
+#define LOCK_FREE_QUEUE
 
 #ifdef LOCK_FREE_QUEUE
 #include "concurrentqueue/concurrentqueue.h"
@@ -12,10 +12,12 @@
 #include "SafeQueue/SafeQueue.hpp"
 #endif // LOCK_FREE_QUEUE
 
+#include "Event.h"
 #include "PackageBase.h"
 
 
 namespace fbp {
+class Executor;
 class Task;
 
 class Node
@@ -23,13 +25,13 @@ class Node
 public:
 	Node(const std::string& name);
 
+	inline const std::string& GetName() { return m_name; }
+
 	inline void Push(std::unique_ptr<PackageBase> ppackage)
 	{
 		if (ppackage->IsLast()) {
-			HandleTaskDetached();
-			if (this->IsActive()) {
-				return;
-			}
+			OnGetLast.notify();
+			return;
 		}
 #ifdef LOCK_FREE_QUEUE
 		m_package_queue.enqueue(std::move(ppackage));
@@ -56,13 +58,6 @@ public:
 #endif // LOCK_FREE_QUEUE
 	}
 
-	inline void HandleTaskAttached() { ++m_task_counter; }
-	inline void HandleTaskDetached() { m_task_counter = std::max(0, m_task_counter - 1); }
-
-	inline bool IsActive() const { return m_task_counter > 0; }
-
-	inline const std::string& GetName() { return m_name; }
-
 private:
 #ifdef LOCK_FREE_QUEUE
 	moodycamel::ConcurrentQueue<std::unique_ptr<PackageBase>> m_package_queue;
@@ -71,7 +66,10 @@ private:
 #endif // LOCK_FREE_QUEUE
 	std::string m_name;
 
-	int m_task_counter;
+	Event<> OnGetLast;
+
+	friend class Task;
+	friend class Executor;
 };
 
 }

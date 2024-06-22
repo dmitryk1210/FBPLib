@@ -182,6 +182,8 @@ int main()
 
 #else
     Node nodeInput("Input");
+    executor.SetInitialNode(&nodeInput);
+
     for (int id = 0; id < 1; ++id) {
         std::shared_ptr<TGAImage<Pixel24bit>> pInputImage = std::make_shared<TGAImage<Pixel24bit>>();
         if (pInputImage->LoadFrom("example01.tga")) {
@@ -190,7 +192,7 @@ int main()
         }
         nodeInput.Push(std::make_unique<PackageInput>(pInputImage, id));
     }
-    nodeInput.Push(std::make_unique<fbp::PackageEndOfStream>());
+    nodeInput.Push(fbp::MakePackageEndOfStream());
 
     Node nodeGray("Gray");
     Node nodeSave("Save");

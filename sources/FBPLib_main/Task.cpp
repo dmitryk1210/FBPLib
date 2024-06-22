@@ -16,9 +16,7 @@ Task::Task(const std::string& name)
 	, m_output_nodes         ()
 	, m_name_to_node         ()
 	, m_workerInstancesCount (0)
-	, m_finishedThreads      (0)
 	, m_name                 (name)
-	, m_pPackageEndOfStream  (nullptr)
 	, m_threadsLimit         (UINT16_MAX)
 {
 }
@@ -28,10 +26,8 @@ Task::Task(const Task& task)
 	, m_output_nodes         (task.m_output_nodes)
 	, m_name_to_node         (task.m_name_to_node)
 	, m_workerInstancesCount (task.m_workerInstancesCount)
-	, m_finishedThreads      (task.m_finishedThreads)
 	, m_name                 (task.m_name)
 	, m_runnable_function    (task.m_runnable_function)
-	, m_pPackageEndOfStream  (task.m_pPackageEndOfStream)
 	, m_threadsLimit         (task.m_threadsLimit)
 {
 }
@@ -45,13 +41,12 @@ void Task::Run(std::unique_ptr<PackageBase> poriginal)
 	m_runnable_function(std::move(poriginal), this);
 }
 
-void Task::SetOutputNodes(const std::vector<Node*>& nodes)
+void Task::SetOutputNodes(std::vector<Node*>&& nodes)
 {
 	m_output_nodes = nodes;
 	m_name_to_node.clear();
 	for (auto it = m_output_nodes.begin(); it != m_output_nodes.end(); ++it) {
 		m_name_to_node[(*it)->GetName()] = *it;
-		(*it)->HandleTaskAttached();
 	}
 }
 
@@ -82,8 +77,7 @@ Task::WorkerInstanceIterationResult Task::workerInstanceDoTaskIteration()
 		return WorkerInstanceIterationResult::SKIPPED;
 	}
 	if (packageIn->IsLast()) {
-		m_pPackageEndOfStream = std::move(packageIn);
-		
+		assert(false);
 		return WorkerInstanceIterationResult::FINALIZED;
 	}
 

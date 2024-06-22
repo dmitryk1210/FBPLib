@@ -105,7 +105,7 @@ int TGAImage<T>::LoadFrom(const std::string& filename)
 template <typename T>
 void PGMImage<T>::AddContrastFilter(int correction)
 {
-    std::vector<size_t> pixelsCount(UINT16_MAX + 1, 0); // fix to use with different types T
+    std::vector<size_t> pixelsCount(UINT16_MAX + 1, 0);
     for (const T& pixel : this->pixels) {
         pixelsCount[pixel] += 1;
     }
@@ -137,7 +137,7 @@ int PGMImage<T>::SaveTo(const std::string& filename)
     }
 
     // PGM header
-    file << "P5\n" << width << " " << height << "\n" << UINT16_MAX << "\n"; // fix to use with different types T
+    file << "P5\n" << width << " " << height << "\n" << UINT16_MAX << "\n";
 
     for (int i = 0; i < pixels.size(); ++i) {
         uint8_t highByte = pixels[i] >> 8;

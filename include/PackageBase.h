@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 
 
 namespace fbp {
@@ -37,5 +38,8 @@ public:
 	}
 };
 
+inline std::unique_ptr<PackageBase> MakePackageEndOfStream() {
+	return std::make_unique<PackageEndOfStream>();
 }
 
+}

@@ -48,7 +48,10 @@ public:
 
 	int  GetWorkerInstancesCount() const { return m_workerInstancesCount; }
 	void SetInputNode(Node* node) { m_input_node = node; }
-	void SetOutputNodes(const std::vector<Node*>& nodes);
+	void SetOutputNodes(std::vector<Node*>&& nodes);
+	inline void SetOutputNodes(const std::vector<Node*>& nodes) { 
+		SetOutputNodes(std::vector<Node*>(nodes)); 
+	}
 	inline void SetOutputNodes(Node* node) { 
 		std::vector<Node*> tmpOutputNodes = std::vector<Node*>();
 		tmpOutputNodes.push_back(node);
@@ -86,10 +89,6 @@ private:
 
 	int m_workerInstancesCount;
 	std::string m_name;
-
-	std::mutex m_finishedThreadsMtx;
-	int m_finishedThreads;
-	std::shared_ptr<PackageBase> m_pPackageEndOfStream;
 
 	WorkerInstanceIterationResult workerInstanceDoTaskIteration();
 
