@@ -1,6 +1,10 @@
 // TracesExtraction.cpp
 //
 
+#include "TracesExtraction.h"
+
+#ifndef USE_SINGLE_THREAD
+
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
@@ -14,42 +18,7 @@
 
 #include "Images.h"
 #include "PatternsLibrary.h"
-#include "TracesExtraction.h"
 
-struct FragmentInfo {
-    FragmentInfo(uint32_t _i, uint32_t _j, float _L, bool _used)
-        : i(_i)
-        , j(_j)
-        , L(_L)
-        , used(_used) {}
-
-    uint32_t i;
-    uint32_t j;
-    float    L;
-    bool     used;
-};
-
-
-#ifdef USE_SINGLE_THREAD
-
-std::vector<float> ProcessImage(PGMImage<PixelType>& image)
-{
-    PatternsLibrary lib;
-    lib.Init();
-    uint32_t imageSize = image.pixels.size();
-
-    std::vector<uint32_t> K(imageSize, 0);
-    std::vector<float>    L(imageSize, 0.f);
-
-    for (uint32_t i = PATTERN_MAX_SIZE / 2; i < image.height - PATTERN_MAX_SIZE / 2; ++i) {
-        for (uint32_t j = PATTERN_MAX_SIZE / 2; j < image.width - PATTERN_MAX_SIZE / 2; ++j) {
-            ProcessPixel(reinterpret_cast<PixelType*>(image.pixels.data()), image.width, i, j, &K[i * image.width + j], &L[i * image.width + j], lib);
-        }
-    }
-    return L;
-}
-
-#else
 
 struct PackageInput : public fbp::PackageBase
 {
@@ -125,7 +94,6 @@ struct PackageSaveToFile : public fbp::PackageBase
 
 typedef std::unique_ptr<fbp::PackageBase> uptr_PackageBase;
 
-#endif // USE_SINGLE_THREAD
 
 
 template <typename Derived, typename Base>
@@ -141,64 +109,6 @@ int main()
 
     auto start = std::chrono::high_resolution_clock::now();
 
-#ifdef USE_SINGLE_THREAD
-    TGAImage<Pixel24bit> inputImage;
-    if (inputImage.LoadFrom("example01.tga")) {
-        return 1;
-    }
-
-    uint32_t imageSize = static_cast<uint32_t>(inputImage.header.width) * inputImage.header.height;
-
-    PGMImage<uint16_t> imageGray;
-    imageGray.pixels.resize(imageSize);
-    imageGray.width = inputImage.header.width;
-    imageGray.height = inputImage.header.height;
-
-    for (uint32_t i = 0; i < imageSize; ++i) {
-        float color = 0.299f * inputImage.pixels[i].red + 0.587f * inputImage.pixels[i].green + 0.114f * inputImage.pixels[i].blue;
-        imageGray.pixels[i] = static_cast<uint16_t>((color) * 0xFFu);
-    }
-    imageGray.SaveTo("output\\gray.pgm");
-
-    imageGray.AddContrastFilter(50);
-
-    imageGray.SaveTo("output\\grayContrast.pgm");
-
-    std::vector<float> L = ProcessImage(imageGray);
-
-    float L_limit = 0;
-    {
-        const int LIMIT = 20;
-        std::vector<float> L_ordered = L;
-        std::partial_sort(L_ordered.begin(), L_ordered.begin() + 1500, L_ordered.end(), std::greater{});
-        L_limit = L_ordered[LIMIT - 1];
-    }
-
-    float L_max = *std::max_element(L.cbegin(), L.cend());
-    
-    TGAImage<Pixel24bit> result;
-    result.header = inputImage.header;
-    result.pixels.resize(imageSize);
-    int counter = 0;
-
-    for (uint32_t i = 0; i < result.header.height; ++i) {
-        for (uint32_t j = 0; j < result.header.width; ++j) {
-            uint32_t pixelIdx = i * result.header.width + j;
-            result.pixels[pixelIdx].blue = 0;
-            result.pixels[pixelIdx].green = 0;
-            if (L_limit > L[pixelIdx]) {
-                result.pixels[pixelIdx].red = 0;
-            }
-            else {
-                result.pixels[pixelIdx].red = static_cast<uint8_t>(std::clamp<uint32_t>(L[pixelIdx] / L_max * UINT8_MAX, 0, UINT8_MAX));
-                counter++;
-            }
-        }
-    }
-
-    result.SaveTo("output\\result.tga");
-
-#else
     Node nodeInput("Input");
     executor.SetInitialNode(&nodeInput);
 
@@ -390,8 +300,8 @@ int main()
             {
                 const int LIMIT = 200;
                 std::vector<float> L_ordered = pProcessedImage->L;
-                std::partial_sort(L_ordered.begin(), L_ordered.begin() + LIMIT, L_ordered.end(), std::greater{});
-                L_limit = L_ordered[LIMIT-1];
+                std::partial_sort(L_ordered.begin(), L_ordered.begin() + LIMIT + 1, L_ordered.end(), std::greater{});
+                L_limit = L_ordered[LIMIT];
             }
 
             const int widthToProcess = (width - PATTERN_MAX_SIZE + (PATTERN_MAX_SIZE & 0x01u));
@@ -409,7 +319,7 @@ int main()
                     }
                     
                     uint32_t pixelProcessIdx = (i - PATTERN_MAX_SIZE / 2) * widthToProcess + (j - PATTERN_MAX_SIZE / 2);
-                    if (L_limit > L_old[pixelProcessIdx]) {
+                    if (L_limit >= L_old[pixelProcessIdx]) {
                         pProcessedImage->L[pixelIdx] = 0.f;
                         continue;
                     }
@@ -615,8 +525,6 @@ int main()
     executor.PrintDebugData("output\\debugData.out");
     executor.Terminate();
 
-#endif // USE_SINGLE_THREAD
-
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
 
@@ -624,3 +532,4 @@ int main()
 
     return 0;
 }
+#endif // !USE_SINGLE_THREAD

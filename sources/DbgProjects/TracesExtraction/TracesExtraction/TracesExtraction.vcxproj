@@ -171,6 +171,7 @@
     <ClCompile Include="PatternsLibrary.cpp" />
     <ClCompile Include="ProcessPixel.cpp" />
     <ClCompile Include="TracesExtraction.cpp" />
+    <ClCompile Include="TracesExtractionSingle.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Images.h" />
