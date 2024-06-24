@@ -20,6 +20,8 @@ public:
 
 	Executor()
 		: m_iMaxThreads(std::thread::hardware_concurrency()) { }
+	
+	~Executor() { Terminate(); }
 
 	void     SetMaxThreads(int iMaxThreads = -1);
 	uint16_t GetMaxThreads() { return m_iMaxThreads; };
@@ -46,9 +48,7 @@ public:
 	void Execute();
 	void Await();
 	void ExecuteAndAwait();
-	void PrintDebugData(const char* filename);
-
-	void Terminate();
+	void PrintDebugData(const std::string& filename);
 
 	bool IsDone() const {
 		return m_iMaxThreads == m_threadsFinished.load();
@@ -83,6 +83,8 @@ private:
 #ifdef FBP_ENABLE_DATA_COLLECTOR
 	DataCollector m_dataCollector;
 #endif // #ifdef FBP_ENABLE_DATA_COLLECTOR
+
+	void Terminate();
 
 	bool IsPackageStreamStopped() { return m_packageStreamStopped.load(); }
 	void ThreadExecute(int);

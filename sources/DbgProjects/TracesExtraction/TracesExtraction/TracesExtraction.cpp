@@ -516,7 +516,6 @@ int main()
     
     executor.ExecuteAndAwait();
     executor.PrintDebugData("output\\debugData.out");
-    executor.Terminate();
 
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);

@@ -63,7 +63,7 @@ public:
 	const std::string& GetName() const { return m_name; }
 
 	uint16_t GetThreadsLimit() { return m_threadsLimit; }
-	void SetThreadsLimit(int threadsLimit) { m_threadsLimit = threadsLimit; };
+	void SetThreadsLimit(uint16_t threadsLimit) { m_threadsLimit = threadsLimit; };
 
 private:
 	Node*                        m_input_node;

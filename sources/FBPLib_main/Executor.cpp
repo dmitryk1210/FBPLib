@@ -161,7 +161,7 @@ void Executor::ExecuteAndAwait()
 }
 
 
-void Executor::PrintDebugData(const char* filename) {
+void Executor::PrintDebugData(const std::string& filename) {
 #ifdef FBP_ENABLE_DATA_COLLECTOR
 	std::ofstream outfile;
 	outfile.open(filename, std::ios::out | std::ios::trunc);
