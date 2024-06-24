@@ -21,24 +21,31 @@ public:
 	Executor()
 		: m_iMaxThreads(std::thread::hardware_concurrency()) { }
 
-	void SetMaxThreads(int iMaxThreads = -1);
+	void     SetMaxThreads(int iMaxThreads = -1);
+	uint16_t GetMaxThreads() { return m_iMaxThreads; };
 
 	void SetInitialNode(Node* initialNode);
 
 	Task& AddTask(const std::string& name, Node* inputNode, Node* outputNode, const RunnableFunction& func) {
 		std::vector<Node*> outputNodes;
 		outputNodes.push_back(outputNode);
-		return AddTask(name, inputNode, outputNodes, RunnableFunction(func));
+		return AddTask(name, inputNode, std::move(outputNodes), RunnableFunction(func));
 	}
 	Task& AddTask(const std::string& name, Node* inputNode, Node* outputNode, RunnableFunction&& func) {
 		std::vector<Node*> outputNodes;
 		outputNodes.push_back(outputNode);
-		return AddTask(name, inputNode, outputNodes, func);
+		return AddTask(name, inputNode, std::move(outputNodes), func);
 	}
 	Task& AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, const RunnableFunction& func) {
+		return AddTask(name, inputNode, std::vector<Node*>(outputNodes), RunnableFunction(func));
+	}
+	Task& AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, RunnableFunction&& func) {
+		return AddTask(name, inputNode, std::vector<Node*>(outputNodes), RunnableFunction(func));
+	}
+	Task& AddTask(const std::string& name, Node* inputNode, std::vector<Node*>&& outputNodes, const RunnableFunction& func) {
 		return AddTask(name, inputNode, outputNodes, RunnableFunction(func));
 	}
-	Task& AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, RunnableFunction&& func);
+	Task& AddTask(const std::string& name, Node* inputNode, std::vector<Node*>&& outputNodes, RunnableFunction&& func);
 
 	void Execute();
 	void Await();

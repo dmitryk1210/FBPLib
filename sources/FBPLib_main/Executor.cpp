@@ -93,7 +93,7 @@ void Executor::SetInitialNode(Node* initialNode) {
 	}
 }
 
-Task& Executor::AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, RunnableFunction&& func)
+Task& Executor::AddTask(const std::string& name, Node* inputNode, std::vector<Node*>&& outputNodes, RunnableFunction&& func)
 {
 	Task taskToAdd = Task(name);
 	taskToAdd.SetInputNode(inputNode);
