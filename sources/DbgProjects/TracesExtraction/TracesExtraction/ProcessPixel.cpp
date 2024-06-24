@@ -7,7 +7,7 @@
 #include "TracesExtraction.h"
 
 
-void ProcessPixel(PixelType* pxls, uint32_t width, uint32_t i, uint32_t j, uint32_t* pxlK, float* pxlL, PatternsLibrary& lib)
+void ProcessPixel(PixelType* pxls, uint32_t width, uint32_t i, uint32_t j, uint32_t* pxlK, float* pxlL, PatternsLibrary* pLib)
 {
     uint32_t pixelIdx = i * width + j;
 
@@ -21,27 +21,27 @@ void ProcessPixel(PixelType* pxls, uint32_t width, uint32_t i, uint32_t j, uint3
         if (k < UP5_OFFSET) {
             WL = UP3_SIZE;
             kGroup = k - UP3_OFFSET;
-            pattern = &(lib.up3[kGroup][0]);
+            pattern = &(pLib->up3[kGroup][0]);
         }
         else if (k < UP7_OFFSET) {
             WL = UP5_SIZE;
             kGroup = k - UP5_OFFSET;
-            pattern = &(lib.up5[kGroup][0]);
+            pattern = &(pLib->up5[kGroup][0]);
         }
         else if (k < UP9_OFFSET) {
             WL = UP7_SIZE;
             kGroup = k - UP7_OFFSET;
-            pattern = &(lib.up7[kGroup][0]);
+            pattern = &(pLib->up7[kGroup][0]);
         }
         else if (k < UP11_OFFSET) {
             WL = UP9_SIZE;
             kGroup = k - UP9_OFFSET;
-            pattern = &(lib.up9[kGroup][0]);
+            pattern = &(pLib->up9[kGroup][0]);
         }
         else {
             WL = UP11_SIZE;
             kGroup = k - UP11_OFFSET;
-            pattern = &(lib.up11[kGroup][0]);
+            pattern = &(pLib->up11[kGroup][0]);
         }
 
         float SY = 0.f;
@@ -67,9 +67,9 @@ void ProcessPixel(PixelType* pxls, uint32_t width, uint32_t i, uint32_t j, uint3
             L_ast = SY * SY / S;
         }
         else {
-            a_ast = lib.C_a[k] * (SYF * S - SY * lib.SF[k]);
-            b_ast = lib.C_b[k] * (SY - a_ast * lib.SF[k]);
-            L_ast = 2 * a_ast * SYF - a_ast * a_ast * lib.SFF[k] + b_ast * b_ast * S;
+            a_ast = pLib->C_a[k] * (SYF * S - SY * pLib->SF[k]);
+            b_ast = pLib->C_b[k] * (SY - a_ast * pLib->SF[k]);
+            L_ast = 2 * a_ast * SYF - a_ast * a_ast * pLib->SFF[k] + b_ast * b_ast * S;
         }
 
         if (a_ast > 0.f && L_ast_max < L_ast || k_ast_max == -1) {

@@ -420,7 +420,7 @@ int main()
                 uint16_t i = PATTERN_MAX_SIZE / 2 + pxl / widthToProcess;
                 uint16_t j = PATTERN_MAX_SIZE / 2 + pxl % widthToProcess;
 
-                ProcessPixel(reinterpret_cast<PixelType*>(pChunk->pGrayImage->pixels.data()), pChunk->pGrayImage->width, i, j, &(pChunk->K_chunk[pxl - pChunk->pxlFrom]), &(pChunk->L_chunk[pxl - pChunk->pxlFrom]), lib);
+                ProcessPixel(reinterpret_cast<PixelType*>(pChunk->pGrayImage->pixels.data()), pChunk->pGrayImage->width, i, j, &(pChunk->K_chunk[pxl - pChunk->pxlFrom]), &(pChunk->L_chunk[pxl - pChunk->pxlFrom]), &lib);
             }
 
             pTask->GetOutputNode("MergeChunks")->Push(std::move(pChunk));
