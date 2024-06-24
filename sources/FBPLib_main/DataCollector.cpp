@@ -1,5 +1,7 @@
 #include "pch.h"
 
+#include "fbpGlobalDefines.h"
+
 #ifdef FBP_ENABLE_DATA_COLLECTOR
 
 #include "DataCollector.h"

@@ -50,6 +50,12 @@ void Task::SetOutputNodes(std::vector<Node*>&& nodes)
 	}
 }
 
+void Task::SetOutputNodes(Node* node) {
+	std::vector<Node*> tmpOutputNodes = std::vector<Node*>();
+	tmpOutputNodes.push_back(node);
+	SetOutputNodes(std::move(tmpOutputNodes));
+}
+
 Node* Task::GetOutputNode(const std::string& nodeName)
 {
 	if (m_output_nodes.empty()) return nullptr;
@@ -57,6 +63,18 @@ Node* Task::GetOutputNode(const std::string& nodeName)
 	auto itNode = m_name_to_node.find(nodeName);
 	if (itNode == m_name_to_node.cend()) return nullptr;
 	return itNode->second;
+}
+
+void Task::InitWorkerInstance(WorkerInstance* pWorkerInstance) {
+	assert(!pWorkerInstance->m_task);
+	pWorkerInstance->m_task = this;
+	++m_workerInstancesCount;
+}
+
+void Task::TermWorkerInstance(WorkerInstance* pWorkerInstance) {
+	assert(pWorkerInstance->m_task == this);
+	pWorkerInstance->m_task = nullptr;
+	--m_workerInstancesCount;
 }
 
 int Task::GetAvaitingPackagesCountApprox() { 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "fbpGlobalDefines.h"
+
 #include <iostream>
 #include <string>
 

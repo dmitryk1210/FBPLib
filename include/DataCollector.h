@@ -1,5 +1,7 @@
 #pragma once
 
+#include "fbpGlobalDefines.h"
+
 #ifdef FBP_ENABLE_DATA_COLLECTOR
 
 #include <chrono>

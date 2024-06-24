@@ -9,6 +9,7 @@
 #include "PatternsLibrary.h"
 
 //#define USE_SINGLE_THREAD
+#define N_ITERATIONS (1)
 
 typedef uint16_t PixelType;
 

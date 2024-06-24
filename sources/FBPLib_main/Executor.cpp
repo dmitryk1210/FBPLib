@@ -1,5 +1,7 @@
 #include "pch.h"
 
+#include "fbpGlobalDefines.h"
+
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -69,18 +71,41 @@ void Executor::ThreadExecute(int threadId)
 }
 
 
-Task& Executor::AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, const RunnableFunction& func)
+void Executor::SetMaxThreads(int iMaxThreads) {
+	if (m_executeInProgress) {
+		assert(false & "Cannot use SetMaxThreads if program is executing");
+		return;
+	}
+	m_iMaxThreads = iMaxThreads > 0 && iMaxThreads < std::thread::hardware_concurrency()
+		? (iMaxThreads)
+		: std::thread::hardware_concurrency();
+}
+
+void Executor::SetInitialNode(Node* initialNode) {
+	if (m_initialNode) {
+		m_initialNode->OnGetLast.unsubscribe(this);
+	}
+	m_initialNode = initialNode;
+	if (m_initialNode) {
+		m_initialNode->OnGetLast.subscribe(this, [this]() {
+			m_packageStreamStopped.store(true, std::memory_order_relaxed);
+			});
+	}
+}
+
+Task& Executor::AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, RunnableFunction&& func)
 {
 	Task taskToAdd = Task(name);
 	taskToAdd.SetInputNode(inputNode);
 	taskToAdd.SetOutputNodes(outputNodes);
 	taskToAdd.Assign(func);
-	return (m_tasks.insert(std::make_pair(name, taskToAdd))).first->second;
+	return (m_tasks.insert(std::make_pair(name, std::move(taskToAdd)))).first->second;
 }
 
 
 void Executor::Execute()
 {
+	m_executeInProgress = true;
 	int numThreads = 0;
 	for (auto it = m_tasks.begin(); it != m_tasks.end(); ++it) {
 		m_taskPool.AddTask(it->first, &(it->second));

@@ -1,5 +1,8 @@
 #pragma once
 
+#include "fbpGlobalDefines.h"
+
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <thread>
@@ -15,29 +18,27 @@ class Executor
 {
 public:
 
-	Executor(int iMaxThreads = -1) {
-		m_iMaxThreads = (iMaxThreads > 0) ? iMaxThreads : std::thread::hardware_concurrency();
-	}
+	Executor()
+		: m_iMaxThreads(std::thread::hardware_concurrency()) { }
 
-	void SetInitialNode(Node * initialNode) {
-		if (m_initialNode) {
-			m_initialNode->OnGetLast.unsubscribe(this);
-		}
-		m_initialNode = initialNode;
-		if (m_initialNode) {
-			m_initialNode->OnGetLast.subscribe(this, [this]() {
-				m_packageStreamStopped.store(true, std::memory_order_relaxed);
-			});
-		}
-	}
+	void SetMaxThreads(int iMaxThreads = -1);
+
+	void SetInitialNode(Node* initialNode);
 
 	Task& AddTask(const std::string& name, Node* inputNode, Node* outputNode, const RunnableFunction& func) {
 		std::vector<Node*> outputNodes;
 		outputNodes.push_back(outputNode);
+		return AddTask(name, inputNode, outputNodes, RunnableFunction(func));
+	}
+	Task& AddTask(const std::string& name, Node* inputNode, Node* outputNode, RunnableFunction&& func) {
+		std::vector<Node*> outputNodes;
+		outputNodes.push_back(outputNode);
 		return AddTask(name, inputNode, outputNodes, func);
 	}
-
-	Task& AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, const RunnableFunction& func);
+	Task& AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, const RunnableFunction& func) {
+		return AddTask(name, inputNode, outputNodes, RunnableFunction(func));
+	}
+	Task& AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, RunnableFunction&& func);
 
 	void Execute();
 	void Await();
@@ -54,13 +55,6 @@ public:
 
 
 private:
-	struct ThreadData {
-		int id = -1;
-		Task* pTask = nullptr;
-
-		bool forceStopThread = false;
-	};
-	
 
 	std::map<std::string, fbp::Task> m_tasks;
 
@@ -70,6 +64,7 @@ private:
 
 	Node*                    m_initialNode = nullptr;
 	std::atomic<bool>        m_packageStreamStopped = false;
+	bool                     m_executeInProgress    = false;
 
 	TaskPool m_taskPool;
 #ifdef FBP_ENABLE_DATA_COLLECTOR

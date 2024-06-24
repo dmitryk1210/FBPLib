@@ -92,14 +92,6 @@ struct PackageSaveToFile : public fbp::PackageBase
     std::shared_ptr<PGMImage<PixelType>>  pPGMImage;
 };
 
-typedef std::unique_ptr<fbp::PackageBase> uptr_PackageBase;
-
-
-
-template <typename Derived, typename Base>
-std::unique_ptr<Derived> uniquePtrCast(std::unique_ptr<Base> ptr) {
-    return std::unique_ptr<Derived>(static_cast<Derived*>(ptr.release()));
-}
 
 int main()
 {
@@ -112,7 +104,7 @@ int main()
     Node nodeInput("Input");
     executor.SetInitialNode(&nodeInput);
 
-    for (int id = 0; id < 1; ++id) {
+    for (int id = 0; id < N_ITERATIONS; ++id) {
         std::shared_ptr<TGAImage<Pixel24bit>> pInputImage = std::make_shared<TGAImage<Pixel24bit>>();
         if (pInputImage->LoadFrom("example02.tga")) {
             assert(false);

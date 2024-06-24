@@ -1,5 +1,7 @@
 #pragma once
 
+#include "fbpGlobalDefines.h"
+
 #include <atomic>
 #include <deque>
 
