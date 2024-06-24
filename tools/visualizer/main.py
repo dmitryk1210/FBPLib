@@ -58,6 +58,8 @@ class Capture:
         self.threads        = {}
         self.taskNameToIdx  = {}
         self.taskNames      = []
+        self.sortedLabels   = None
+        self.sortedColors   = None
 
     def isAllParametersValid(self):
         return (self.startTime != -1) and (self.endTime != -1) and (self.instancesCount != -1)
@@ -148,26 +150,23 @@ def showThreadsPlot():
     width = 10
     height = 0.5
 
-    fig, ax = plt.subplots(figsize=(12, 10))
-
-    norm = Normalize(0, 1)
-    cmap = plt.get_cmap('viridis')
+    fig, ax = plt.subplots(figsize=(12, 9))
 
     tasksCount = len(capture.taskNameToIdx)
 
-    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
-    taskNameToColor = {}
-    for taskName, idx in capture.taskNameToIdx.items():
-        taskNameToColor[taskName] = colors[idx]
+    colors = capture.sortedColors
+    labels = capture.sortedLabels
+
+    taskNameToColor = {label: colors[i] for i, label in enumerate(labels)}
 
     for yi, threadObj in zip(y, capture.threads.values()):
         for x in x_values:
-            color_value = -1
             currentChunk = threadObj.getChunkAtTimePoint(x / TIME_SCALING_CONST + capture.startTime)
             if currentChunk is not None:
-                color_value = (capture.taskNameToIdx[currentChunk.taskName]) / (tasksCount - 1)
-            color = 'w' if (color_value == -1) else cmap(norm(color_value))
-            #color = 'w' if (color_value == -1) else taskNameToColor[currentChunk.taskName]
+                task_name = currentChunk.taskName
+                color = taskNameToColor[task_name]
+            else:
+                color = 'w'
             ax.add_patch(patches.Rectangle((x, yi), width / len(x_values), height, color=color))
 
     ax.set_xlim([0, x_values[-1]])
@@ -176,11 +175,14 @@ def showThreadsPlot():
     ax.set_ylabel('processors')
     ax.set_title('Tasks by processors')
 
-    colors = [cmap(i / (tasksCount - 1)) for i in range(tasksCount)]
-    labels = list(capture.taskNameToIdx.keys())
+    ax.grid(True)
+
+    plt.subplots_adjust(left=0.1, right=0.8)
+
     patches_list = [patches.Patch(color=colors[i], label=labels[i]) for i in range(tasksCount)]
-    #legend = ax.legend(handles=patches_list, title="Legend", loc='upper right', bbox_to_anchor=(1.15, 1))
+    ax.legend(handles=patches_list, title="Legend", loc='upper right', bbox_to_anchor=(1.25, 1))
     plt.show()
+
 
 
 def showTasksPlot():
@@ -191,20 +193,22 @@ def showTasksPlot():
     x_values = np.linspace(0, float(capture.endTime - capture.startTime) * TIME_SCALING_CONST, 1024)
     y = np.zeros((len(capture.taskNameToIdx), 1024))
 
-    fig, ax = plt.subplots(figsize=(18, 10))
-
-    norm = Normalize(0, 1)
-    cmap = plt.get_cmap('viridis')
+    fig, ax = plt.subplots(figsize=(12, 8))
 
     tasksCount = len(capture.taskNameToIdx)
 
-    colors  = [cmap(i / (tasksCount - 1)) for i in range(tasksCount)]
+    colors = capture.sortedColors
+    labels = capture.sortedLabels
 
     for i, xi in enumerate(x_values):
         for threadObj in capture.threads.values():
             currentChunk = threadObj.getChunkAtTimePoint(xi / TIME_SCALING_CONST + capture.startTime)
             if currentChunk is not None:
                 y[capture.taskNameToIdx[currentChunk.taskName]][i] += 1
+
+    y_sorted = np.zeros_like(y)
+    for i, label in enumerate(labels):
+        y_sorted[i] = y[capture.taskNameToIdx[label]]
 
     plt.grid()
     ax.set_xlim([0, x_values[-1]])
@@ -213,24 +217,74 @@ def showTasksPlot():
     ax.set_ylabel('processors')
     ax.set_title('Processors count by task')
 
-    for i, yi in enumerate(y):
-        plt.plot(x_values, yi, color=colors[i])
+    plt.subplots_adjust(left=0.1, right=0.8)
 
-    labels = list(capture.taskNameToIdx.keys())
+    for i, yi in enumerate(y_sorted):
+        color = colors[i]
+        if isinstance(color, tuple):
+            color = color[:3]
+        plt.plot(x_values, yi, color=color)
+
     patches_list = [patches.Patch(color=colors[i], label=labels[i]) for i in range(tasksCount)]
-    legend = ax.legend(handles=patches_list, title="Legend", loc='upper right', bbox_to_anchor=(1.12, 1))
+    legend = ax.legend(handles=patches_list, title="Legend", loc='upper right', bbox_to_anchor=(1.25, 1))
     plt.show()
 
-    for i, yi in enumerate(y):
-        fig, ax = plt.subplots(figsize=(18, 10))
-        plt.grid()
-        ax.set_xlim([0, x_values[-1]])
-        ax.set_ylim([0, len(capture.threads) + 1])
-        ax.set_xlabel('time, ms')
-        ax.set_ylabel('processors')
-        ax.set_title(f'Processors count for task {capture.taskNames[i]}')
-        plt.plot(x_values, yi)
-        plt.show()
+    showAdditionalPlots = False
+    if showAdditionalPlots:
+        for i, yi in enumerate(y_sorted):
+            fig, ax = plt.subplots(figsize=(12, 8))
+            plt.grid()
+            ax.set_xlim([0, x_values[-1]])
+            ax.set_ylim([0, len(capture.threads) + 1])
+            ax.set_xlabel('time, ms')
+            ax.set_ylabel('processors')
+            ax.set_title(f'Processors count for task {labels[i]}')
+            color = colors[i]
+            if isinstance(color, tuple):
+                color = color[:3]
+            plt.plot(x_values, yi, color=color)
+            plt.show()
+
+
+def calcAndShowTasksStats():
+    global capture
+    if capture is None:
+        return
+
+    y = np.zeros(len(capture.taskNameToIdx))
+    for threadObj in capture.threads.values():
+        for chunk in threadObj.chunks:
+            y[capture.taskNameToIdx[chunk.taskName]] += (chunk.endTime - chunk.startTime)
+
+    total = sum(y)
+
+    labels = []
+    sizes = []
+    percentages = []
+
+    for name, idx in capture.taskNameToIdx.items():
+        percentage = (y[idx] / total) * 100
+        labels.append(name)
+        sizes.append(percentage)
+        percentages.append(f"{name}: {percentage:.2f}%")
+
+    sorted_indices = sorted(range(len(sizes)), key=lambda k: sizes[k], reverse=True)
+    labels = [labels[i] for i in sorted_indices]
+    sizes = [sizes[i] for i in sorted_indices]
+    percentages = [percentages[i] for i in sorted_indices]
+
+    plt.figure(figsize=(10, 7))
+    wedges, texts = plt.pie(sizes, startangle=140, wedgeprops=dict(width=0.3))
+
+    plt.subplots_adjust(left=0.05, right=0.75)
+
+    plt.legend(wedges, percentages, title="Tasks", loc="center left", bbox_to_anchor=(0.9, 0, 0.5, 1))
+    plt.title('Percentage ratio of tasks')
+    plt.axis('equal')
+    plt.show()
+
+    capture.sortedLabels = labels
+    capture.sortedColors = [wedges[i].get_facecolor() for i in range(len(wedges))]
 
 
 def main():
@@ -247,6 +301,7 @@ def main():
     if capture is None:
         return
 
+    calcAndShowTasksStats()
     showTasksPlot()
     showThreadsPlot()
     print(args.inpfile)
