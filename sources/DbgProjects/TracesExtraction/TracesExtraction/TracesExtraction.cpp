@@ -261,14 +261,21 @@ int main()
     );
 
     Node nodeContrast("Contrast");
-    executor.AddTask("task_MakeContrast", &nodeGray, &nodeContrast,
+    executor.AddTask("task_MakeContrast", &nodeGray, std::vector{ &nodeContrast, &nodeSave },
         [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
             std::unique_ptr<PackageGrayImage> pGrayImage = uniquePtrCast<PackageGrayImage>(std::move(packageIn));
+            auto pGrayImageOld = pGrayImage->pGrayImage;
+            pGrayImage->pGrayImage = std::make_shared<PGMImage<PixelType>>();
+            pGrayImage->pGrayImage = pGrayImageOld;
             pGrayImage->pGrayImage->AddContrastFilter(50);
-            pGrayImage->pGrayImage->SaveTo("output\\grayContrast.pgm");
+            
+            std::unique_ptr<PackageSaveToFile> pSaveToFile = std::make_unique<PackageSaveToFile>();
+            pSaveToFile->filename = "output\\grayContrast.pgm";
+            pSaveToFile->pPGMImage = pGrayImage->pGrayImage;
+            pTask->GetOutputNode("Save")->Push(std::move(pSaveToFile));
     
-            pTask->GetOutputNode()->Push(std::move(pGrayImage));
+            pTask->GetOutputNode("Contrast")->Push(std::move(pGrayImage));
         }
     );
     
@@ -536,15 +543,15 @@ int main()
         }
     );
 
-    Node nodeOutput("Output");
-    executor.AddTask("task_Draw", &nodeDraw, &nodeOutput,
+    executor.AddTask("task_Draw", &nodeDraw, &nodeSave,
         [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
             std::unique_ptr<PackageProcessedImageWithGroups> pProcessedImage = uniquePtrCast<PackageProcessedImageWithGroups>(std::move(packageIn));
 
-            TGAImage<Pixel24bit> result;
+            std::shared_ptr<TGAImage<Pixel24bit>> pResult = std::make_shared<TGAImage<Pixel24bit>>();
+            TGAImage<Pixel24bit>& result = *pResult;
             result.header = pProcessedImage->pInputImage->header;
-            result.pixels.resize(result.header.width* result.header.height);
+            result.pixels.resize(result.header.width * result.header.height);
             memcpy(result.pixels.data(), pProcessedImage->pInputImage->pixels.data(), result.pixels.size() * sizeof(Pixel24bit));
 
             for (uint32_t i = 0; i < result.header.height; ++i) {
@@ -597,7 +604,10 @@ int main()
                 }
             }
 
-            result.SaveTo("output\\result.tga");
+            std::unique_ptr<PackageSaveToFile> pSaveToFile = std::make_unique<PackageSaveToFile>();
+            pSaveToFile->filename = "output\\result.tga";
+            pSaveToFile->pTGAImage = pResult;
+            pTask->GetOutputNode("Save")->Push(std::move(pSaveToFile));
         }
     );
     
