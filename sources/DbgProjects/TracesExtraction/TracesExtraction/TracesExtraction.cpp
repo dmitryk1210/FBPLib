@@ -93,6 +93,195 @@ struct PackageSaveToFile : public fbp::PackageBase
 };
 
 
+class FunctorGroupFragments {
+public:
+    void operator()(fbp::uptr_PackageBase packageIn, fbp::Task* pTask) {
+        std::unique_ptr<PackageProcessedImage> pProcessedImage = fbp::uniquePtrCast<PackageProcessedImage>(std::move(packageIn));
+
+        const float G_max = PATTERN_MAX_SIZE * 2;
+        const float F_min = 0.f;
+        const float p_max = PATTERN_MAX_SIZE * 2;
+
+        uint32_t height = pProcessedImage->pInputImage->header.height;
+        uint32_t width = pProcessedImage->pInputImage->header.width;
+
+        std::vector<FragmentInfo> fragments;
+        for (uint32_t i = 0; i < height; ++i) {
+            for (uint32_t j = 0; j < width; ++j) {
+                uint32_t pixelIdx = i * width + j;
+                if (pProcessedImage->L[pixelIdx] > 1e-6) {
+                    fragments.emplace_back(i, j, pProcessedImage->L[pixelIdx], false);
+                }
+            }
+        }
+
+        std::vector<std::vector<FragmentInfo>> tracks;
+
+        for (uint32_t i = 0; i < fragments.size(); ++i) {
+            if (fragments[i].used) {
+                continue;
+            }
+
+            FragmentInfo& startFragment = fragments[i];
+            fragments[i].used = true;
+            std::vector<FragmentInfo> currentTrack;
+            currentTrack.push_back(startFragment);
+
+            // Find the closest unused fragment to startFragment
+            FragmentInfo* closestFragmentPtr = nullptr;
+            float minDistance = G_max;
+
+            for (auto& frag : fragments) {
+                if (!frag.used) {
+                    float distance = std::sqrt(std::pow(frag.i - startFragment.i, 2) + std::pow(frag.j - startFragment.j, 2));
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestFragmentPtr = &frag;
+                    }
+                }
+            }
+
+            if (closestFragmentPtr == nullptr) {
+                continue;
+            }
+
+            FragmentInfo& nextFragment = *closestFragmentPtr;
+            nextFragment.used = true;
+            currentTrack.push_back(nextFragment);
+
+            // Calculate line equation parameters: y = kx + b
+            float k = static_cast<float>(nextFragment.j - startFragment.j) / (nextFragment.i - startFragment.i);
+            float b = startFragment.j - k * startFragment.i;
+
+            // Find all candidates within p_max distance to the line
+            std::vector<FragmentInfo*> candidates;
+            for (auto& frag : fragments) {
+                if (!frag.used) {
+                    float distanceToLine = std::abs(k * frag.i - frag.j + b) / std::sqrt(k * k + 1);
+                    if (distanceToLine < p_max) {
+                        candidates.push_back(&frag);
+                    }
+                }
+            }
+
+            bool added = true;
+            while (added) {
+                added = false;
+                for (auto it = candidates.begin(); it != candidates.end();) {
+                    FragmentInfo* candidate = *it;
+                    bool closeToTrack = false;
+                    for (const auto& trackFragment : currentTrack) {
+                        float distanceToTrack = std::sqrt(std::pow(candidate->i - trackFragment.i, 2) + std::pow(candidate->j - trackFragment.j, 2));
+                        if (distanceToTrack < G_max) {
+                            closeToTrack = true;
+                            break;
+                        }
+                    }
+                    if (closeToTrack) {
+                        candidate->used = true;
+                        currentTrack.push_back(*candidate);
+                        it = candidates.erase(it);
+                        added = true;
+                    }
+                    else {
+                        ++it;
+                    }
+                }
+            }
+
+            // Check if the density and distance criteria are met for the current track
+            // float density = static_cast<float>(currentTrack.size()) / (height * width);
+            bool validTrack = true;// density >= F_min;
+
+            if (validTrack) {
+                tracks.push_back(currentTrack);
+            }
+            else {
+                for (auto& frag : currentTrack) {
+                    fragments[frag.i * width + frag.j].used = false;
+                }
+            }
+        }
+
+        std::unique_ptr<PackageProcessedImageWithGroups> pOutput = std::make_unique<PackageProcessedImageWithGroups>();
+        pOutput->pInputImage = std::move(pProcessedImage->pInputImage);
+        pOutput->pGrayImage = std::move(pProcessedImage->pGrayImage);
+        pOutput->id = std::move(pProcessedImage->id);
+        pOutput->L = std::move(pProcessedImage->L);
+        pOutput->tracks = std::move(tracks);
+
+        pTask->GetOutputNode()->Push(std::move(pOutput));
+    }
+};
+
+
+void DrawImage(fbp::uptr_PackageBase packageIn, fbp::Task* pTask)
+{
+    std::unique_ptr<PackageProcessedImageWithGroups> pProcessedImage = fbp::uniquePtrCast<PackageProcessedImageWithGroups>(std::move(packageIn));
+
+    std::shared_ptr<TGAImage<Pixel24bit>> pResult = std::make_shared<TGAImage<Pixel24bit>>();
+    TGAImage<Pixel24bit>& result = *pResult;
+    result.header = pProcessedImage->pInputImage->header;
+    result.pixels.resize(result.header.width * result.header.height);
+    memcpy(result.pixels.data(), pProcessedImage->pInputImage->pixels.data(), result.pixels.size() * sizeof(Pixel24bit));
+
+    for (uint32_t i = 0; i < result.header.height; ++i) {
+        for (uint32_t j = 0; j < result.header.width; ++j) {
+            uint32_t pixelIdx = i * result.header.width + j;
+            if (pProcessedImage->L[pixelIdx] <= 1e-6) {
+                continue;
+            }
+
+            const int SQUARE_RADIUS = PATTERN_MAX_SIZE / 2;
+            for (int k = -SQUARE_RADIUS; k < SQUARE_RADIUS; ++k) {
+                result(i - SQUARE_RADIUS, j + k).Set(UINT8_MAX, 0, 0);
+                result(i + SQUARE_RADIUS, j - k).Set(UINT8_MAX, 0, 0);
+                result(i + k, j + SQUARE_RADIUS).Set(UINT8_MAX, 0, 0);
+                result(i - k, j - SQUARE_RADIUS).Set(UINT8_MAX, 0, 0);
+            }
+        }
+    }
+
+    for (const auto& track : pProcessedImage->tracks) {
+        if (track.empty()) continue;
+
+        // Find the bounding box of the group
+        uint32_t min_i = track.front().i;
+        uint32_t max_i = track.front().i;
+        uint32_t min_j = track.front().j;
+        uint32_t max_j = track.front().j;
+
+        for (const auto& frag : track) {
+            if (frag.i < min_i) min_i = frag.i;
+            if (frag.i > max_i) max_i = frag.i;
+            if (frag.j < min_j) min_j = frag.j;
+            if (frag.j > max_j) max_j = frag.j;
+        }
+
+        // Extend the bounding box by PATTERN_MAX_SIZE
+        min_i = (min_i > PATTERN_MAX_SIZE) ? min_i - PATTERN_MAX_SIZE : 0;
+        max_i = (max_i + PATTERN_MAX_SIZE < result.header.height) ? max_i + PATTERN_MAX_SIZE : result.header.height - 1;
+        min_j = (min_j > PATTERN_MAX_SIZE) ? min_j - PATTERN_MAX_SIZE : 0;
+        max_j = (max_j + PATTERN_MAX_SIZE < result.header.width) ? max_j + PATTERN_MAX_SIZE : result.header.width - 1;
+
+        // Draw blue rectangle around the group
+        for (uint32_t k = min_j; k <= max_j; ++k) {
+            result(min_i, k).Set(0, UINT8_MAX, 0);
+            result(max_i, k).Set(0, UINT8_MAX, 0);
+        }
+        for (uint32_t k = min_i; k <= max_i; ++k) {
+            result(k, min_j).Set(0, UINT8_MAX, 0);
+            result(k, max_j).Set(0, UINT8_MAX, 0);
+        }
+    }
+
+    std::unique_ptr<PackageSaveToFile> pSaveToFile = std::make_unique<PackageSaveToFile>();
+    pSaveToFile->filename = "output\\result.tga";
+    pSaveToFile->pTGAImage = pResult;
+    pTask->GetOutputNode("Save")->Push(std::move(pSaveToFile));
+}
+
+
 int main()
 {
     using namespace fbp;
@@ -321,194 +510,9 @@ int main()
     );
 
     executor.AddNode("Draw");
-    executor.AddTask("task_Group", "Group", "Draw",
-        [](uptr_PackageBase packageIn, fbp::Task* pTask)
-        {
-            std::unique_ptr<PackageProcessedImage> pProcessedImage = uniquePtrCast<PackageProcessedImage>(std::move(packageIn));
+    executor.AddTask("task_Group", "Group", "Draw", FunctorGroupFragments());
 
-            const float G_max = PATTERN_MAX_SIZE * 2;
-            const float F_min = 0.f;
-            const float p_max = PATTERN_MAX_SIZE * 2;
-
-            uint32_t height = pProcessedImage->pInputImage->header.height;
-            uint32_t width  = pProcessedImage->pInputImage->header.width;
-
-            std::vector<FragmentInfo> fragments;
-            for (uint32_t i = 0; i < height; ++i) {
-                for (uint32_t j = 0; j < width; ++j) {
-                    uint32_t pixelIdx = i * width + j;
-                    if (pProcessedImage->L[pixelIdx] > 1e-6) {
-                        fragments.emplace_back(i, j, pProcessedImage->L[pixelIdx], false);
-                    }
-                }
-            }
-
-            std::vector<std::vector<FragmentInfo>> tracks;
-
-            for (uint32_t i = 0; i < fragments.size(); ++i) {
-                if (fragments[i].used) {
-                    continue;
-                }
-
-                FragmentInfo& startFragment = fragments[i];
-                fragments[i].used = true;
-                std::vector<FragmentInfo> currentTrack;
-                currentTrack.push_back(startFragment);
-
-                // Find the closest unused fragment to startFragment
-                FragmentInfo* closestFragmentPtr = nullptr;
-                float minDistance = G_max;
-
-                for (auto& frag : fragments) {
-                    if (!frag.used) {
-                        float distance = std::sqrt(std::pow(frag.i - startFragment.i, 2) + std::pow(frag.j - startFragment.j, 2));
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            closestFragmentPtr = &frag;
-                        }
-                    }
-                }
-
-                if (closestFragmentPtr == nullptr) {
-                    continue;
-                }
-
-                FragmentInfo& nextFragment = *closestFragmentPtr;
-                nextFragment.used = true;
-                currentTrack.push_back(nextFragment);
-
-                // Calculate line equation parameters: y = kx + b
-                float k = static_cast<float>(nextFragment.j - startFragment.j) / (nextFragment.i - startFragment.i);
-                float b = startFragment.j - k * startFragment.i;
-
-                // Find all candidates within p_max distance to the line
-                std::vector<FragmentInfo*> candidates;
-                for (auto& frag : fragments) {
-                    if (!frag.used) {
-                        float distanceToLine = std::abs(k * frag.i - frag.j + b) / std::sqrt(k * k + 1);
-                        if (distanceToLine < p_max) {
-                            candidates.push_back(&frag);
-                        }
-                    }
-                }
-
-                bool added = true;
-                while (added) {
-                    added = false;
-                    for (auto it = candidates.begin(); it != candidates.end();) {
-                        FragmentInfo* candidate = *it;
-                        bool closeToTrack = false;
-                        for (const auto& trackFragment : currentTrack) {
-                            float distanceToTrack = std::sqrt(std::pow(candidate->i - trackFragment.i, 2) + std::pow(candidate->j - trackFragment.j, 2));
-                            if (distanceToTrack < G_max) {
-                                closeToTrack = true;
-                                break;
-                            }
-                        }
-                        if (closeToTrack) {
-                            candidate->used = true;
-                            currentTrack.push_back(*candidate);
-                            it = candidates.erase(it);
-                            added = true;
-                        }
-                        else {
-                            ++it;
-                        }
-                    }
-                }
-
-                // Check if the density and distance criteria are met for the current track
-                // float density = static_cast<float>(currentTrack.size()) / (height * width);
-                bool validTrack = true;// density >= F_min;
-
-                if (validTrack) {
-                    tracks.push_back(currentTrack);
-                }
-                else {
-                    for (auto& frag : currentTrack) {
-                        fragments[frag.i * width + frag.j].used = false;
-                    }
-                }
-            }
-
-            std::unique_ptr<PackageProcessedImageWithGroups> pOutput = std::make_unique<PackageProcessedImageWithGroups>();
-            pOutput->pInputImage = std::move(pProcessedImage->pInputImage);
-            pOutput->pGrayImage  = std::move(pProcessedImage->pGrayImage);
-            pOutput->id          = std::move(pProcessedImage->id);
-            pOutput->L           = std::move(pProcessedImage->L);
-            pOutput->tracks = std::move(tracks);
-
-            pTask->GetOutputNode()->Push(std::move(pOutput));
-        }
-    );
-
-    executor.AddTask("task_Draw", "Draw", "Save",
-        [](uptr_PackageBase packageIn, fbp::Task* pTask)
-        {
-            std::unique_ptr<PackageProcessedImageWithGroups> pProcessedImage = uniquePtrCast<PackageProcessedImageWithGroups>(std::move(packageIn));
-
-            std::shared_ptr<TGAImage<Pixel24bit>> pResult = std::make_shared<TGAImage<Pixel24bit>>();
-            TGAImage<Pixel24bit>& result = *pResult;
-            result.header = pProcessedImage->pInputImage->header;
-            result.pixels.resize(result.header.width * result.header.height);
-            memcpy(result.pixels.data(), pProcessedImage->pInputImage->pixels.data(), result.pixels.size() * sizeof(Pixel24bit));
-
-            for (uint32_t i = 0; i < result.header.height; ++i) {
-                for (uint32_t j = 0; j < result.header.width; ++j) {
-                    uint32_t pixelIdx = i * result.header.width + j;
-                    if (pProcessedImage->L[pixelIdx] <= 1e-6) {
-                        continue;
-                    }
-                    
-                    const int SQUARE_RADIUS = PATTERN_MAX_SIZE / 2;
-                    for (int k = -SQUARE_RADIUS; k < SQUARE_RADIUS; ++k) {
-                        result(i - SQUARE_RADIUS, j + k).Set(UINT8_MAX, 0, 0);
-                        result(i + SQUARE_RADIUS, j - k).Set(UINT8_MAX, 0, 0);
-                        result(i + k, j + SQUARE_RADIUS).Set(UINT8_MAX, 0, 0);
-                        result(i - k, j - SQUARE_RADIUS).Set(UINT8_MAX, 0, 0);
-                    }
-                }
-            }
-
-            for (const auto& track : pProcessedImage->tracks) {
-                if (track.empty()) continue;
-
-                // Find the bounding box of the group
-                uint32_t min_i = track.front().i;
-                uint32_t max_i = track.front().i;
-                uint32_t min_j = track.front().j;
-                uint32_t max_j = track.front().j;
-
-                for (const auto& frag : track) {
-                    if (frag.i < min_i) min_i = frag.i;
-                    if (frag.i > max_i) max_i = frag.i;
-                    if (frag.j < min_j) min_j = frag.j;
-                    if (frag.j > max_j) max_j = frag.j;
-                }
-
-                // Extend the bounding box by PATTERN_MAX_SIZE
-                min_i = (min_i > PATTERN_MAX_SIZE) ? min_i - PATTERN_MAX_SIZE : 0;
-                max_i = (max_i + PATTERN_MAX_SIZE < result.header.height) ? max_i + PATTERN_MAX_SIZE : result.header.height - 1;
-                min_j = (min_j > PATTERN_MAX_SIZE) ? min_j - PATTERN_MAX_SIZE : 0;
-                max_j = (max_j + PATTERN_MAX_SIZE < result.header.width) ? max_j + PATTERN_MAX_SIZE : result.header.width - 1;
-
-                // Draw blue rectangle around the group
-                for (uint32_t k = min_j; k <= max_j; ++k) {
-                    result(min_i, k).Set(0, UINT8_MAX, 0);
-                    result(max_i, k).Set(0, UINT8_MAX, 0);
-                }
-                for (uint32_t k = min_i; k <= max_i; ++k) {
-                    result(k, min_j).Set(0, UINT8_MAX, 0);
-                    result(k, max_j).Set(0, UINT8_MAX, 0);
-                }
-            }
-
-            std::unique_ptr<PackageSaveToFile> pSaveToFile = std::make_unique<PackageSaveToFile>();
-            pSaveToFile->filename = "output\\result.tga";
-            pSaveToFile->pTGAImage = pResult;
-            pTask->GetOutputNode("Save")->Push(std::move(pSaveToFile));
-        }
-    );
+    executor.AddTask("task_Draw", "Draw", "Save", DrawImage);
     
     executor.ExecuteAndAwait();
     executor.PrintDebugData("output\\debugData.out");
