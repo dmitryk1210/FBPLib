@@ -151,6 +151,5 @@ int PGMImage<T>::SaveTo(const std::string& filename)
         std::cerr << "Error: Could not write to file properly." << std::endl;
         return 1;
     }
-    std::cout << "Image saved successfully." << std::endl;
     return 0;
 }
