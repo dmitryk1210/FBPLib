@@ -26,26 +26,22 @@ public:
 
 	void SetInitialNode(Node* initialNode);
 
-	Task& AddTask(const std::string& name, Node* inputNode, Node* outputNode, const RunnableFunction& func) {
-		std::vector<Node*> outputNodes;
+	Node& AddNode(const std::string& name, bool isInitial = false);
+
+	Task& AddTask(const std::string& name, const std::string& inputNode, const std::string& outputNode, const RunnableFunction& func) {
+		std::vector<std::string> outputNodes;
 		outputNodes.push_back(outputNode);
 		return AddTask(name, inputNode, std::move(outputNodes), RunnableFunction(func));
 	}
-	Task& AddTask(const std::string& name, Node* inputNode, Node* outputNode, RunnableFunction&& func) {
-		std::vector<Node*> outputNodes;
+	Task& AddTask(const std::string& name, const std::string& inputNode, const std::string& outputNode, RunnableFunction&& func) {
+		std::vector<std::string> outputNodes;
 		outputNodes.push_back(outputNode);
 		return AddTask(name, inputNode, std::move(outputNodes), func);
 	}
-	Task& AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, const RunnableFunction& func) {
-		return AddTask(name, inputNode, std::vector<Node*>(outputNodes), RunnableFunction(func));
+	Task& AddTask(const std::string& name, const std::string& inputNode, const std::vector<std::string>& outputNodes, const RunnableFunction& func) {
+		return AddTask(name, inputNode, std::vector<std::string>(outputNodes), RunnableFunction(func));
 	}
-	Task& AddTask(const std::string& name, Node* inputNode, const std::vector<Node*>& outputNodes, RunnableFunction&& func) {
-		return AddTask(name, inputNode, std::vector<Node*>(outputNodes), RunnableFunction(func));
-	}
-	Task& AddTask(const std::string& name, Node* inputNode, std::vector<Node*>&& outputNodes, const RunnableFunction& func) {
-		return AddTask(name, inputNode, outputNodes, RunnableFunction(func));
-	}
-	Task& AddTask(const std::string& name, Node* inputNode, std::vector<Node*>&& outputNodes, RunnableFunction&& func);
+	Task& AddTask(const std::string& name, const std::string& inputNode, const std::vector<std::string>& outputNodes, RunnableFunction&& func);
 
 	void Execute();
 	void Await();
@@ -58,12 +54,22 @@ public:
 		return m_iMaxThreads == m_threadsFinished.load();
 	}
 
-	Task& GetTask(const std::string& name) { return m_tasks.find(name)->second; }
+	inline Task& GetTask(const std::string& name) { 
+		auto it = m_tasks.find(name);
+		assert(it != m_tasks.end());
+		return it->second;
+	}
+	inline Node& GetNode(const std::string& name) { 
+		auto it = m_nodes.find(name); 
+		assert(it != m_nodes.end()); 
+		return it->second; 
+	}
 
 
 private:
 
 	std::map<std::string, fbp::Task> m_tasks;
+	std::map<std::string, fbp::Node> m_nodes;
 
 	std::vector<std::thread> m_threads;
 	uint16_t                 m_iMaxThreads;

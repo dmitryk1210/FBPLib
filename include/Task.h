@@ -56,12 +56,6 @@ public:
 	void Assign(const RunnableFunction& func) { m_runnable_function = func; }
 	void Assign(RunnableFunction&& func) { m_runnable_function = func; }
 
-	void SetInputNode(Node* node) { m_input_node = node; }
-	void SetOutputNodes(std::vector<Node*>&& nodes);
-	inline void SetOutputNodes(const std::vector<Node*>& nodes) { 
-		SetOutputNodes(std::vector<Node*>(nodes)); 
-	}
-	void SetOutputNodes(Node* node);
 	Node* GetOutputNode(const std::string& nodeName = "");
 
 	int GetAvaitingPackagesCountApprox();
@@ -81,6 +75,13 @@ private:
 
 	int m_workerInstancesCount;
 	std::string m_name;
+
+	void SetInputNode(Node* node) { m_input_node = node; }
+	void SetOutputNodes(std::vector<Node*>&& nodes);
+	inline void SetOutputNodes(const std::vector<Node*>& nodes) {
+		SetOutputNodes(std::vector<Node*>(nodes));
+	}
+	void SetOutputNodes(Node* node);
 
 	WorkerInstanceIterationResult workerInstanceDoTaskIteration();
 

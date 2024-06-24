@@ -71,9 +71,10 @@ void Executor::ThreadExecute(int threadId)
 }
 
 
-void Executor::SetMaxThreads(int iMaxThreads) {
+void Executor::SetMaxThreads(int iMaxThreads) 
+{
 	if (m_executeInProgress) {
-		assert(false & "Cannot use SetMaxThreads if program is executing");
+		assert(false && "Cannot use SetMaxThreads if program is executing");
 		return;
 	}
 	m_iMaxThreads = iMaxThreads > 0 && iMaxThreads < std::thread::hardware_concurrency()
@@ -81,7 +82,8 @@ void Executor::SetMaxThreads(int iMaxThreads) {
 		: std::thread::hardware_concurrency();
 }
 
-void Executor::SetInitialNode(Node* initialNode) {
+void Executor::SetInitialNode(Node* initialNode) 
+{
 	if (m_initialNode) {
 		m_initialNode->OnGetLast.unsubscribe(this);
 	}
@@ -93,11 +95,24 @@ void Executor::SetInitialNode(Node* initialNode) {
 	}
 }
 
-Task& Executor::AddTask(const std::string& name, Node* inputNode, std::vector<Node*>&& outputNodes, RunnableFunction&& func)
+Node& Executor::AddNode(const std::string& name, bool isInitial)
+{
+	Node* pNode = &(m_nodes.insert(std::make_pair(name, Node(name)))).first->second;
+	if (isInitial) {
+		SetInitialNode(pNode);
+	}
+	return *pNode;
+}
+
+Task& Executor::AddTask(const std::string& name, const std::string& inputNode, const std::vector<std::string>& outputNodes, RunnableFunction&& func)
 {
 	Task taskToAdd = Task(name);
-	taskToAdd.SetInputNode(inputNode);
-	taskToAdd.SetOutputNodes(outputNodes);
+	taskToAdd.SetInputNode(&GetNode(inputNode));
+	std::vector<Node*> outputNodePtrs;
+	for (auto it = outputNodes.cbegin(); it != outputNodes.cend(); ++it) {
+		outputNodePtrs.push_back(&GetNode(*it));
+	}
+	taskToAdd.SetOutputNodes(std::move(outputNodePtrs));
 	taskToAdd.Assign(func);
 	return (m_tasks.insert(std::make_pair(name, std::move(taskToAdd)))).first->second;
 }

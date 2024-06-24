@@ -101,8 +101,7 @@ int main()
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    Node nodeInput("Input");
-    executor.SetInitialNode(&nodeInput);
+    executor.AddNode("Input", true);
 
     for (int id = 0; id < N_ITERATIONS; ++id) {
         std::shared_ptr<TGAImage<Pixel24bit>> pInputImage = std::make_shared<TGAImage<Pixel24bit>>();
@@ -110,13 +109,13 @@ int main()
             assert(false);
             return -1;
         }
-        nodeInput.Push(std::make_unique<PackageInput>(pInputImage, id));
+        executor.GetNode("Input").Push(std::make_unique<PackageInput>(pInputImage, id));
     }
-    nodeInput.Push(fbp::MakePackageEndOfStream());
+    executor.GetNode("Input").Push(fbp::MakePackageEndOfStream());
 
-    Node nodeGray("Gray");
-    Node nodeSave("Save");
-    executor.AddTask("task_MakeGray", &nodeInput, std::vector{ &nodeGray, &nodeSave },
+    executor.AddNode("Gray");
+    executor.AddNode("Save");
+    executor.AddTask("task_MakeGray", "Input", std::vector<std::string>{"Gray", "Save"},
         [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
             std::unique_ptr<PackageInput> pInputImage    = uniquePtrCast<PackageInput>(std::move(packageIn));
@@ -148,8 +147,8 @@ int main()
         }
     ).SetThreadsLimit(1);
 
-    Node nodeSaveout("Saveout");
-    executor.AddTask("task_Save", &nodeSave, &nodeSaveout,
+    executor.AddNode("Output");
+    executor.AddTask("task_Save", "Save", "Output",
         [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
             std::unique_ptr<PackageSaveToFile> pSaveToFile = uniquePtrCast<PackageSaveToFile>(std::move(packageIn));
@@ -162,14 +161,14 @@ int main()
         }
     );
 
-    Node nodeContrast("Contrast");
-    executor.AddTask("task_MakeContrast", &nodeGray, std::vector{ &nodeContrast, &nodeSave },
+    executor.AddNode("Contrast");
+    executor.AddTask("task_MakeContrast", "Gray", std::vector<std::string>{"Contrast", "Save"},
         [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
             std::unique_ptr<PackageGrayImage> pGrayImage = uniquePtrCast<PackageGrayImage>(std::move(packageIn));
             auto pGrayImageOld = pGrayImage->pGrayImage;
             pGrayImage->pGrayImage = std::make_shared<PGMImage<PixelType>>();
-            pGrayImage->pGrayImage = pGrayImageOld;
+            *(pGrayImage->pGrayImage) = *pGrayImageOld;
             pGrayImage->pGrayImage->AddContrastFilter(50);
             
             std::unique_ptr<PackageSaveToFile> pSaveToFile = std::make_unique<PackageSaveToFile>();
@@ -181,10 +180,9 @@ int main()
         }
     );
     
-    Node nodeChunksToProcess("ChunksToProcess");
-    Node nodeMergeChunks("MergeChunks");
-
-    executor.AddTask("task_SliceChunks", &nodeContrast, std::vector{ &nodeChunksToProcess, &nodeMergeChunks }, 
+    executor.AddNode("ChunksToProcess");
+    executor.AddNode("MergeChunks");
+    executor.AddTask("task_SliceChunks", "Contrast", std::vector<std::string>{"ChunksToProcess", "MergeChunks"},
         [](uptr_PackageBase packageIn, fbp::Task * pTask)
         {
             const int CHUNKS_PER_IMAGE = 32;
@@ -220,7 +218,7 @@ int main()
         }
     ).SetThreadsLimit(1);
 
-    executor.AddTask("task_ProcessChunks", &nodeChunksToProcess, &nodeMergeChunks,
+    executor.AddTask("task_ProcessChunks", "ChunksToProcess", "MergeChunks",
         [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
             std::unique_ptr<PackageImageChunk> pChunk = uniquePtrCast<PackageImageChunk>(std::move(packageIn));
@@ -240,9 +238,8 @@ int main()
         }
     );
 
-    
-    Node nodeProcessedImages("ProcessedImages");
-    executor.AddTask("task_MergeChunks", &nodeMergeChunks, &nodeProcessedImages,
+    executor.AddNode("ProcessedImages");
+    executor.AddTask("task_MergeChunks", "MergeChunks", "ProcessedImages",
         [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
             static std::map<uint32_t, std::shared_ptr<PackageMergeTask>> idToTask;
@@ -279,8 +276,8 @@ int main()
         }
     ).SetThreadsLimit(1);
     
-    Node nodeGroup("Group");
-    executor.AddTask("task_Filter", &nodeProcessedImages, &nodeGroup,
+    executor.AddNode("Group");
+    executor.AddTask("task_Filter", "ProcessedImages", "Group",
         [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
             std::unique_ptr<PackageProcessedImage> pProcessedImage = uniquePtrCast<PackageProcessedImage>(std::move(packageIn));
@@ -323,8 +320,8 @@ int main()
         }
     );
 
-    Node nodeDraw("Draw");
-    executor.AddTask("task_Group", &nodeGroup, &nodeDraw,
+    executor.AddNode("Draw");
+    executor.AddTask("task_Group", "Group", "Draw",
         [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
             std::unique_ptr<PackageProcessedImage> pProcessedImage = uniquePtrCast<PackageProcessedImage>(std::move(packageIn));
@@ -445,7 +442,7 @@ int main()
         }
     );
 
-    executor.AddTask("task_Draw", &nodeDraw, &nodeSave,
+    executor.AddTask("task_Draw", "Draw", "Save",
         [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
             std::unique_ptr<PackageProcessedImageWithGroups> pProcessedImage = uniquePtrCast<PackageProcessedImageWithGroups>(std::move(packageIn));
