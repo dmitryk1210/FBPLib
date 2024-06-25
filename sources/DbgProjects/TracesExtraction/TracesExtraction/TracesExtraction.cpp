@@ -414,6 +414,7 @@ int main()
         }
     ).SetThreadsLimit(1);
 
+#ifdef USE_CUDA
     executor.AddTaskCuda("task_ProcessChunks", "ChunksToProcess", "MergeChunks",
         [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
@@ -443,6 +444,26 @@ int main()
             pTask->GetOutputNode("MergeChunks")->Push(std::move(pChunk));
         }
     );
+#else
+    executor.AddTask("task_ProcessChunks", "ChunksToProcess", "MergeChunks",
+        [](uptr_PackageBase packageIn, fbp::Task* pTask)
+        {
+            std::unique_ptr<PackageImageChunk> pChunk = uniquePtrCast<PackageImageChunk>(std::move(packageIn));
+            const size_t widthToProcess = (pChunk->pGrayImage->width - PATTERN_MAX_SIZE + (PATTERN_MAX_SIZE & 0x01u));
+
+            PatternsLibrary lib;
+
+            for (uint32_t pxl = pChunk->pxlFrom; pxl < pChunk->pxlTo; ++pxl) {
+                uint16_t i = PATTERN_MAX_SIZE / 2 + pxl / widthToProcess;
+                uint16_t j = PATTERN_MAX_SIZE / 2 + pxl % widthToProcess;
+
+                ProcessPixel(reinterpret_cast<PixelType*>(pChunk->pGrayImage->pixels.data()), pChunk->pGrayImage->width, i, j, &(pChunk->K_chunk[pxl - pChunk->pxlFrom]), &(pChunk->L_chunk[pxl - pChunk->pxlFrom]), &lib);
+            }
+
+            pTask->GetOutputNode("MergeChunks")->Push(std::move(pChunk));
+        }
+    );
+#endif // USE_CUDA
 
     executor.AddNode("ProcessedImages");
     executor.AddTask("task_MergeChunks", "MergeChunks", "ProcessedImages",
