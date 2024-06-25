@@ -41,9 +41,17 @@ public:
 		return AddTask(name, inputNode, std::move(outputNodes), func);
 	}
 	Task& AddTask(const std::string& name, const std::string& inputNode, const std::vector<std::string>& outputNodes, const RunnableFunction& func) {
-		return AddTask(name, inputNode, std::vector<std::string>(outputNodes), RunnableFunction(func));
+		return AddTask(name, inputNode, outputNodes, RunnableFunction(func));
 	}
 	Task& AddTask(const std::string& name, const std::string& inputNode, const std::vector<std::string>& outputNodes, RunnableFunction&& func);
+
+#ifdef USE_CUDA
+	Task& AddTaskCuda(const std::string& name, const std::string& inputNode, const std::string& outputNode, const RunnableFunction& funcGPU, const RunnableFunction&& funcCPU) {
+		return AddTaskCuda(name, inputNode, std::vector<std::string>{ outputNode }, funcGPU, funcCPU);
+	};
+	Task& AddTaskCuda(const std::string& name, const std::string& inputNode, const std::vector<std::string>& outputNodes, const RunnableFunction& funcGPU, const RunnableFunction& funcCPU);
+	
+#endif // USE_CUDA
 
 	void Execute();
 	void Await();
@@ -89,6 +97,7 @@ private:
 	bool IsPackageStreamStopped() { return m_packageStreamStopped.load(); }
 	void ThreadExecute(int);
 
+	std::atomic<bool>        m_cudaCoreClaimed = false;
 };
 }
 

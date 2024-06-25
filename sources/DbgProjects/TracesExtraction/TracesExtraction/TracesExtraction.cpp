@@ -19,6 +19,8 @@
 #include "Images.h"
 #include "PatternsLibrary.h"
 
+#include "CudaFunctions.h"
+
 
 struct PackageInput : public fbp::PackageBase
 {
@@ -48,7 +50,7 @@ struct PackageProcessedImage : public fbp::PackageBase
     std::shared_ptr<TGAImage<Pixel24bit>> pInputImage;
     std::shared_ptr<PGMImage<PixelType>>  pGrayImage;
     std::vector<float> L;
-    uint32_t           id          = 0;
+    uint32_t           id = 0;
 };
 
 struct PackageProcessedImageWithGroups : public PackageProcessedImage
@@ -68,19 +70,19 @@ struct PackageMerge : public fbp::PackageBase
 struct PackageMergeTask : public PackageMerge
 {
     virtual bool IsTask() override { return true; }
-    
+
     std::shared_ptr<TGAImage<Pixel24bit>> pInputImage;
     std::vector<uint32_t> K;
     std::vector<float>    L;
     uint16_t              nProcessedChunks = 0;
-    uint16_t              nChunks          = 0;
+    uint16_t              nChunks = 0;
 };
 
 struct PackageImageChunk : public PackageMerge
 {
-    PackageMergeTask*     pMergeTask = nullptr;
-    uint32_t              pxlFrom    = 0;
-    uint32_t              pxlTo      = 0;
+    PackageMergeTask* pMergeTask = nullptr;
+    uint32_t              pxlFrom = 0;
+    uint32_t              pxlTo = 0;
     std::vector<uint32_t> K_chunk;
     std::vector<float>    L_chunk;
 };
@@ -276,7 +278,8 @@ void DrawImage(fbp::uptr_PackageBase packageIn, fbp::Task* pTask)
     }
 
     std::unique_ptr<PackageSaveToFile> pSaveToFile = std::make_unique<PackageSaveToFile>();
-    pSaveToFile->filename = "output\\result.tga";
+    pSaveToFile->filename = "output\\result";
+    pSaveToFile->filename += std::to_string(pProcessedImage->id) + ".tga";
     pSaveToFile->pTGAImage = pResult;
     pTask->GetOutputNode("Save")->Push(std::move(pSaveToFile));
 }
@@ -307,19 +310,19 @@ int main()
     executor.AddTask("task_MakeGray", "Input", std::vector<std::string>{"Gray", "Save"},
         [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
-            std::unique_ptr<PackageInput> pInputImage    = uniquePtrCast<PackageInput>(std::move(packageIn));
+            std::unique_ptr<PackageInput> pInputImage = uniquePtrCast<PackageInput>(std::move(packageIn));
             std::unique_ptr<PackageGrayImage> pGrayImage = std::make_unique<PackageGrayImage>();
 
             pGrayImage->pInputImage = pInputImage->pImage;
-            pGrayImage->pGrayImage  = std::make_shared<PGMImage<PixelType>>();
-            pGrayImage->id          = pInputImage->id;
+            pGrayImage->pGrayImage = std::make_shared<PGMImage<PixelType>>();
+            pGrayImage->id = pInputImage->id;
             const TGAImage<Pixel24bit>& inputImage = *(pGrayImage->pInputImage);
-            PGMImage<PixelType>&        imageGray  = *(pGrayImage->pGrayImage);
+            PGMImage<PixelType>& imageGray = *(pGrayImage->pGrayImage);
 
             uint32_t imageSize = static_cast<uint32_t>(inputImage.header.width) * inputImage.header.height;
-            
+
             imageGray.pixels.resize(imageSize);
-            imageGray.width  = inputImage.header.width;
+            imageGray.width = inputImage.header.width;
             imageGray.height = inputImage.header.height;
 
             for (uint32_t i = 0; i < imageSize; ++i) {
@@ -348,7 +351,7 @@ int main()
                 pSaveToFile->pPGMImage->SaveTo(pSaveToFile->filename);
             }
         }
-    );
+    ).SetThreadsLimit(6);
 
     executor.AddNode("Contrast");
     executor.AddTask("task_MakeContrast", "Gray", std::vector<std::string>{"Contrast", "Save"},
@@ -359,30 +362,34 @@ int main()
             pGrayImage->pGrayImage = std::make_shared<PGMImage<PixelType>>();
             *(pGrayImage->pGrayImage) = *pGrayImageOld;
             pGrayImage->pGrayImage->AddContrastFilter(50);
-            
+
             std::unique_ptr<PackageSaveToFile> pSaveToFile = std::make_unique<PackageSaveToFile>();
             pSaveToFile->filename = "output\\grayContrast.pgm";
             pSaveToFile->pPGMImage = pGrayImage->pGrayImage;
             pTask->GetOutputNode("Save")->Push(std::move(pSaveToFile));
-    
+
             pTask->GetOutputNode("Contrast")->Push(std::move(pGrayImage));
         }
     );
-    
+
     executor.AddNode("ChunksToProcess");
     executor.AddNode("MergeChunks");
     executor.AddTask("task_SliceChunks", "Contrast", std::vector<std::string>{"ChunksToProcess", "MergeChunks"},
-        [](uptr_PackageBase packageIn, fbp::Task * pTask)
+        [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
+#ifdef USE_CUDA
+            const int CHUNKS_PER_IMAGE = 1;
+#else
             const int CHUNKS_PER_IMAGE = 32;
+#endif // USE_CUDA
             std::unique_ptr<PackageMergeTask> pMergeTask = std::make_unique<PackageMergeTask>();
 
             {
                 std::unique_ptr<PackageGrayImage> pGrayImage = uniquePtrCast<PackageGrayImage>(std::move(packageIn));
                 pMergeTask->pInputImage = pGrayImage->pInputImage;
-                pMergeTask->pGrayImage  = pGrayImage->pGrayImage;
-                pMergeTask->id          = pGrayImage->id;
-                pMergeTask->nChunks     = CHUNKS_PER_IMAGE;
+                pMergeTask->pGrayImage = pGrayImage->pGrayImage;
+                pMergeTask->id = pGrayImage->id;
+                pMergeTask->nChunks = CHUNKS_PER_IMAGE;
             }
 
             uint32_t pixelsToProcess = (pMergeTask->pGrayImage->height - PATTERN_MAX_SIZE + (PATTERN_MAX_SIZE & 0x01u)) * (pMergeTask->pGrayImage->width - PATTERN_MAX_SIZE + (PATTERN_MAX_SIZE & 0x01u));
@@ -393,12 +400,12 @@ int main()
             uint32_t nextChunkStartPxl = 0;
             for (int i = 0; i < CHUNKS_PER_IMAGE; ++i) {
                 std::unique_ptr<PackageImageChunk> pChunk = std::make_unique<PackageImageChunk>();
-                pChunk->id         = pMergeTask->id;
+                pChunk->id = pMergeTask->id;
                 pChunk->pGrayImage = pMergeTask->pGrayImage;
                 pChunk->pMergeTask = &(*pMergeTask);
-                pChunk->pxlFrom    = nextChunkStartPxl;
-                nextChunkStartPxl  = pixelsToProcess / CHUNKS_PER_IMAGE * (i + 1);
-                pChunk->pxlTo      = (i == CHUNKS_PER_IMAGE - 1 ? pixelsToProcess : nextChunkStartPxl);
+                pChunk->pxlFrom = nextChunkStartPxl;
+                nextChunkStartPxl = pixelsToProcess / CHUNKS_PER_IMAGE * (i + 1);
+                pChunk->pxlTo = (i == CHUNKS_PER_IMAGE - 1 ? pixelsToProcess : nextChunkStartPxl);
                 pChunk->K_chunk.resize(pChunk->pxlTo - pChunk->pxlFrom);
                 pChunk->L_chunk.resize(pChunk->pxlTo - pChunk->pxlFrom);
                 pTask->GetOutputNode("ChunksToProcess")->Push(std::move(pChunk));
@@ -407,14 +414,24 @@ int main()
         }
     ).SetThreadsLimit(1);
 
-    executor.AddTask("task_ProcessChunks", "ChunksToProcess", "MergeChunks",
+    executor.AddTaskCuda("task_ProcessChunks", "ChunksToProcess", "MergeChunks",
         [](uptr_PackageBase packageIn, fbp::Task* pTask)
         {
             std::unique_ptr<PackageImageChunk> pChunk = uniquePtrCast<PackageImageChunk>(std::move(packageIn));
             const size_t widthToProcess = (pChunk->pGrayImage->width - PATTERN_MAX_SIZE + (PATTERN_MAX_SIZE & 0x01u));
 
             PatternsLibrary lib;
-            lib.Init();
+
+            ProcessImageCuda(pChunk->pGrayImage->pixels.data(), pChunk->pGrayImage->height, pChunk->pGrayImage->width, pChunk->pxlFrom, pChunk->pxlTo, pChunk->K_chunk.data(), pChunk->L_chunk.data(), pChunk->L_chunk.size(), &lib);
+
+            pTask->GetOutputNode("MergeChunks")->Push(std::move(pChunk));
+        },
+        [](uptr_PackageBase packageIn, fbp::Task* pTask)
+        {
+            std::unique_ptr<PackageImageChunk> pChunk = uniquePtrCast<PackageImageChunk>(std::move(packageIn));
+            const size_t widthToProcess = (pChunk->pGrayImage->width - PATTERN_MAX_SIZE + (PATTERN_MAX_SIZE & 0x01u));
+
+            PatternsLibrary lib;
 
             for (uint32_t pxl = pChunk->pxlFrom; pxl < pChunk->pxlTo; ++pxl) {
                 uint16_t i = PATTERN_MAX_SIZE / 2 + pxl / widthToProcess;
@@ -444,7 +461,7 @@ int main()
             std::shared_ptr<PackageMergeTask> pMergeTask = idToTask[pChunk->id];
 
             memcpy(pMergeTask->K.data() + pChunk->pxlFrom, pChunk->K_chunk.data(), (pChunk->pxlTo - pChunk->pxlFrom) * sizeof(uint32_t));
-            memcpy(pMergeTask->L.data() + pChunk->pxlFrom, pChunk->L_chunk.data(), (pChunk->pxlTo - pChunk->pxlFrom) * sizeof(float ));
+            memcpy(pMergeTask->L.data() + pChunk->pxlFrom, pChunk->L_chunk.data(), (pChunk->pxlTo - pChunk->pxlFrom) * sizeof(float));
 
             pChunk.reset();
 
@@ -456,15 +473,15 @@ int main()
             std::unique_ptr<PackageProcessedImage> pProcessedImage = std::make_unique<PackageProcessedImage>();
             pProcessedImage->id = pMergeTask->id;
             pProcessedImage->pInputImage = pMergeTask->pInputImage;
-            pProcessedImage->pGrayImage  = pMergeTask->pGrayImage;
-            pProcessedImage->L           = std::move(pMergeTask->L);
+            pProcessedImage->pGrayImage = pMergeTask->pGrayImage;
+            pProcessedImage->L = std::move(pMergeTask->L);
             idToTask.erase(pMergeTask->id);
             assert(pMergeTask.use_count() == 1);
 
             pTask->GetOutputNode("ProcessedImages")->Push(std::move(pProcessedImage));
         }
-    ).SetThreadsLimit(1);
-    
+    );
+
     executor.AddNode("Group");
     executor.AddTask("task_Filter", "ProcessedImages", "Group",
         [](uptr_PackageBase packageIn, fbp::Task* pTask)
@@ -472,8 +489,8 @@ int main()
             std::unique_ptr<PackageProcessedImage> pProcessedImage = uniquePtrCast<PackageProcessedImage>(std::move(packageIn));
 
             uint32_t height = pProcessedImage->pInputImage->header.height;
-            uint32_t width  = pProcessedImage->pInputImage->header.width;
-    
+            uint32_t width = pProcessedImage->pInputImage->header.width;
+
             float L_limit = 0;
             {
                 const int LIMIT = 200;
@@ -487,7 +504,7 @@ int main()
             std::vector<float> L_old;
             L_old.resize(height * width);
             std::swap(L_old, pProcessedImage->L);
-    
+
             for (uint32_t i = 0; i < height; ++i) {
                 for (uint32_t j = 0; j < width; ++j) {
                     uint32_t pixelIdx = i * width + j;
@@ -495,7 +512,7 @@ int main()
                         pProcessedImage->L[pixelIdx] = 0.f;
                         continue;
                     }
-                    
+
                     uint32_t pixelProcessIdx = (i - PATTERN_MAX_SIZE / 2) * widthToProcess + (j - PATTERN_MAX_SIZE / 2);
                     if (L_limit >= L_old[pixelProcessIdx]) {
                         pProcessedImage->L[pixelIdx] = 0.f;
@@ -513,7 +530,7 @@ int main()
     executor.AddTask("task_Group", "Group", "Draw", FunctorGroupFragments());
 
     executor.AddTask("task_Draw", "Draw", "Save", DrawImage);
-    
+
     executor.ExecuteAndAwait();
     executor.PrintDebugData("output\\debugData.out");
 

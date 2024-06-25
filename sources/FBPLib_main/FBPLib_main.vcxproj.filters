@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="CudaProvider">
+      <UniqueIdentifier>{cea74574-ac19-4a5b-90d9-c05d9e40b44e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -54,6 +57,9 @@
     <ClInclude Include="..\..\include\fbpGlobalDefines.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\CudaProvider.h">
+      <Filter>CudaProvider</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -77,5 +83,10 @@
     <ClCompile Include="DataCollector.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="CudaProvider.cu">
+      <Filter>CudaProvider</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>

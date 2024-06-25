@@ -38,5 +38,13 @@
     <ClInclude Include="TracesExtraction.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CudaFunctions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CudaFunctions.cu">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

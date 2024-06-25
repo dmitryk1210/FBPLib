@@ -55,6 +55,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.7.props" />
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
@@ -143,9 +144,13 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(Root)\build\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>FBPLib_main_$(Platform)_$(Configuration).lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(CudaToolkitLibDir);$(Root)\build\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>FBPLib_main_$(Platform)_$(Configuration).lib;cudart.lib;cudart_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <CudaCompile>
+      <CudaRuntime>Shared</CudaRuntime>
+      <CompileOut>$(Root)\build\cuda\$(ProjectName)\$(Platform)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -163,9 +168,13 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(Root)\build\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>FBPLib_main_$(Platform)_$(Configuration).lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(CudaToolkitLibDir);$(Root)\build\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>FBPLib_main_$(Platform)_$(Configuration).lib;cudart.lib;cudart_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <CudaCompile>
+      <CudaRuntime>Shared</CudaRuntime>
+      <CompileOut>$(Root)\build\cuda\$(ProjectName)\$(Platform)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="PatternsLibrary.cpp" />
@@ -174,11 +183,16 @@
     <ClCompile Include="TracesExtractionSingle.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CudaFunctions.h" />
     <ClInclude Include="Images.h" />
     <ClInclude Include="PatternsLibrary.h" />
     <ClInclude Include="TracesExtraction.h" />
   </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="CudaFunctions.cu" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.7.targets" />
   </ImportGroup>
 </Project>

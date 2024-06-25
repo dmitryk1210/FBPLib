@@ -9,6 +9,9 @@
 #include "os.h"
 #include "Executor.h"
 
+#ifdef USE_CUDA
+#include "CudaProvider.h"
+#endif // USE_CUDA
 
 namespace fbp {
 
@@ -116,6 +119,36 @@ Task& Executor::AddTask(const std::string& name, const std::string& inputNode, c
 	taskToAdd.Assign(func);
 	return (m_tasks.insert(std::make_pair(name, std::move(taskToAdd)))).first->second;
 }
+
+
+#ifdef USE_CUDA
+Task& Executor::AddTaskCuda(const std::string& name, const std::string& inputNode, const std::vector<std::string>& outputNodes, const RunnableFunction& funcGPU, const RunnableFunction& funcCPU)
+{
+	Task taskToAdd = Task(name);
+	taskToAdd.SetInputNode(&GetNode(inputNode));
+	std::vector<Node*> outputNodePtrs;
+	for (auto it = outputNodes.cbegin(); it != outputNodes.cend(); ++it) {
+		outputNodePtrs.push_back(&GetNode(*it));
+	}
+	taskToAdd.SetOutputNodes(std::move(outputNodePtrs));
+	
+	if (HasCudaDevice()) {
+		taskToAdd.Assign([&, funcGPU, funcCPU](std::unique_ptr<PackageBase> ptrPackageBase, Task* ptrTask) {
+			if (!m_cudaCoreClaimed.exchange(true)) {
+				funcGPU(std::move(ptrPackageBase), ptrTask);
+				m_cudaCoreClaimed.store(false);
+			}
+			else {
+				funcCPU(std::move(ptrPackageBase), ptrTask);
+			}
+		});
+	}
+	else {
+		taskToAdd.Assign(funcCPU);
+	}
+	return (m_tasks.insert(std::make_pair(name, taskToAdd))).first->second;
+}
+#endif // USE_CUDA
 
 
 void Executor::Execute()
