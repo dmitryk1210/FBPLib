@@ -1,3 +1,6 @@
+// Node.h
+//
+
 #pragma once
 
 #include "fbpGlobalDefines.h"
@@ -25,7 +28,7 @@ class Task;
 class Node
 {
 public:
-	Node(const std::string& name);
+	Node(const std::string& name) : m_name(name) {}
 
 	inline const std::string& GetName() { return m_name; }
 

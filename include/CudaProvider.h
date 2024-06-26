@@ -1,4 +1,11 @@
+// CudaProvider.h
+//
+
 #pragma once
+
+#include "fbpGlobalDefines.h"
+
+#ifdef USE_CUDA
 
 #ifdef __cplusplus
 extern "C" {
@@ -10,3 +17,4 @@ bool HasCudaDevice();
 }
 #endif // __cplusplus
 
+#endif // USE_CUDA

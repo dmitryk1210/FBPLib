@@ -1,3 +1,6 @@
+// DataCollector.h
+//
+
 #pragma once
 
 #include "fbpGlobalDefines.h"
@@ -7,7 +10,6 @@
 #include <chrono>
 #include <vector>
 #include <mutex>
-
 #include <ostream>
 
 namespace fbp {

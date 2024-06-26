@@ -1,3 +1,9 @@
+// CudaProvider.cu
+//
+
+#include "fbpGlobalDefines.h"
+
+#ifdef USE_CUDA
 #include <cassert>
 #include <stdio.h>
 
@@ -10,3 +16,4 @@ extern "C" bool HasCudaDevice() {
     cudaError_t err = cudaGetDeviceProperties(&prop, 0);
     return err == cudaSuccess;
 }
+#endif // USE_CUDA

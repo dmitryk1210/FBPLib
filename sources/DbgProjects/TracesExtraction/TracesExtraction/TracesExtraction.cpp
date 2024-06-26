@@ -1,4 +1,4 @@
-// TracesExtraction.cpp
+// TracesExtraction.cpp - this file contains main function for parallel version
 //
 
 #include "TracesExtraction.h"
@@ -191,9 +191,7 @@ public:
                 }
             }
 
-            // Check if the density and distance criteria are met for the current track
-            // float density = static_cast<float>(currentTrack.size()) / (height * width);
-            bool validTrack = true;// density >= F_min;
+            bool validTrack = true;
 
             if (validTrack) {
                 tracks.push_back(currentTrack);

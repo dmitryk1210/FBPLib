@@ -1,4 +1,4 @@
-// TracesExtractionSingle.cpp
+// TracesExtractionSingle.cpp - this file contains main function for parallel version
 //
 
 #include "TracesExtraction.h"
